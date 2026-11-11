@@ -664,6 +664,10 @@ label {
 
 input[type="number"],
 input[type="text"],
+input[type="password"],
+input[type="date"],
+input:not([type]),
+textarea,
 select {
   font-family: inherit;
   font-size: 0.875rem;

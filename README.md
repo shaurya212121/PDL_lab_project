@@ -1,172 +1,252 @@
-# 🛡️ ClashAudit — Faculty Workload Distribution & Conflict Detector
-> **Python Data Lab (PDL) Mini Project** | Intelligent Timetable Conflict Detection, Workload Balancing & ML Burnout Risk Prediction
+# ClashAudit — Faculty Workload Distribution & Conflict Detector
 
-An institutional operations dashboard engineered to automate academic timetable conflict detection, enforce AICTE/UGC workload limits, balance departmental teaching hours, and predict faculty burnout risk using machine learning.
+ClashAudit is a web application for colleges that checks a weekly timetable for clashes, keeps every faculty member's teaching load within AICTE / UGC limits, and helps the office arrange substitutes when a teacher is on leave. It is written in Python (Flask, SQLite, pandas, matplotlib and scikit-learn) and runs on any ordinary computer. Other computers on the college network can open it in a browser.
 
----
-
-## 📌 Problem Statement
-
-In academic institutions (engineering colleges & universities), scheduling hundreds of courses and lab sections across various departments is a high-dimensional constraint satisfaction challenge. Manual or static timetable generation frequently leads to:
-1. **Faculty Time Collisions**: Same professor scheduled for two different classes at the identical time slot.
-2. **Room Double-Booking**: Two distinct courses scheduled in the same lecture hall or laboratory simultaneously.
-3. **Faculty Fatigue & Burnout**: Consecutive teaching streaks (≥ 4 hours without rest) and disproportionate weekly teaching assignments violating statutory quotas.
-4. **Unbalanced Resource Utilization**: Junior faculty overloaded (20+ hrs) while senior faculty remain underutilized, violating AICTE/UGC institutional governance.
-
-**Objective**: Develop a clean, lightweight, and demonstratable system with:
-- An **algorithmic conflict detector** that scans any timetable schedule in real-time, highlights hard and soft conflicts, and calculates a departmental **Workload Balance Index (WBI)**.
-- A **smart auto-reassignment engine** that discovers eligible substitute faculty in the same department to eliminate collisions in one click.
-- A **supervised Machine Learning classifier (96.25% test accuracy)** that predicts faculty stress/burnout risk based on teaching, lab, administrative, and research hours.
-- A **clean, responsive Web UI (HTML5, CSS3, JavaScript)** featuring **instant one-click demo scenarios** designed for university lab vivas and presentations.
+*Python Data Lab (PDL) mini project.*
 
 ---
 
-## 🏛️ Academic Workload Norms (AICTE / UGC Guidelines)
+## 1. The problem
 
-| Academic Designation | Direct Teaching (Lectures) | Lab / Practical Sessions | Administrative & Research | Max Weekly Cap |
-|---|---|---|---|---|
-| **Assistant Professor** | 12 – 14 hrs/week | 4 – 6 hrs/week | 2 – 4 hrs/week | **18 Hours / Week** |
-| **Associate Professor** | 8 – 10 hrs/week | 2 – 4 hrs/week | 4 – 6 hrs/week | **16 Hours / Week** |
-| **Professor / HOD** | 4 – 6 hrs/week | 0 – 2 hrs/week | 6 – 8 hrs/week | **14 Hours / Week** |
+A department's timetable has hundreds of entries: faculty, subjects, sections, rooms, days and time slots. When it is prepared by hand in a spreadsheet, mistakes are common and are usually found only after the semester starts:
 
----
+- one teacher is given **two classes at the same time**
+- one room is **booked twice** for the same hour
+- one section of students has **two lectures at once**
+- a lab is placed in an ordinary classroom, or a class of 70 is put in a 40-seat room
+- some faculty get **more hours than the AICTE / UGC limit** while others are under-used
+- a teacher gets **four or five classes back-to-back** without a break
+- when someone is on leave, finding a free and suitable substitute is done by phone calls
 
-## ⚙️ Machine Learning Model Evaluation & Benchmarking
-
-We synthesized a realistic institutional dataset of **400 faculty members** (`dataset/faculty_workload.csv`) across Computer Science, Information Technology, AI & Data Science, and Electronics departments.
-
-We evaluated four candidate models using stratified 80/20 train-test splits and 5-fold cross-validation:
-
-| Model Architecture | Test Accuracy | Precision | Recall | F1-Score | 5-Fold Stratified CV |
-|---|---|---|---|---|---|
-| **Logistic Regression (Selected)** | **96.25%** | **96.48%** | **96.25%** | **96.24%** | **95.50%** |
-| Decision Tree Classifier | 93.75% | 94.10% | 93.75% | 93.76% | 90.00% |
-| Random Forest Classifier | 91.25% | 91.45% | 91.25% | 91.19% | 92.25% |
-| Gaussian Naive Bayes | 48.75% | 52.10% | 48.75% | 41.16% | 53.50% |
-
-### Why Logistic Regression?
-- **High Accuracy & Generalization**: Highest accuracy (96.25%) and tightest 5-fold CV score (95.50%).
-- **Simplicity & Interpretability**: Clean multi-class decision boundaries with zero black-box obscurity.
-- **Fast CPU Inference**: Execution time < 1 ms with negligible memory overhead.
+ClashAudit finds all of these automatically, explains each one in plain English and suggests a fix.
 
 ---
 
-## 🖥️ Web User Interface Features
+## 2. Features
 
-- **Instant Demo Scenarios (One-Click Viva Presets)**:
-  - 🟢 **Scenario A: Optimal Timetable**: 0 conflicts, balanced distribution across all departments.
-  - 🔴 **Scenario B: Critical Collisions**: Faculty time clash (Dr. Rajesh Sharma scheduled in two classes at Monday 10:00 AM) + Room clash (LH-101 double-booked on Wednesday).
-  - 🟡 **Scenario C: Overload & Fatigue**: 4 back-to-back continuous hours + 20+ weekly hours on Dr. Amit Verma.
-- **1-Click AI Auto-Resolve**: Generates alternative assignment options and swaps conflicted faculty with an available, qualified peer in one click.
-- **Live Timetable Grid**: Interactive table with status badges (`Clash` / `Valid`) and inline test session addition.
-- **Faculty Workload Utilization Meters**: Visual progress bars tracking hours against AICTE thresholds (Green: Balanced, Amber: Underloaded, Red: Overloaded).
-- **Interactive ML Burnout Calculator**: Allows testing individual faculty combinations to view multi-class stress probabilities and institutional guidance.
+### Timetable checking
+| Check | Type | What it means |
+|---|---|---|
+| Faculty double-booking | **Hard clash** | Same teacher, two classes, same day and slot |
+| Room double-booking | **Hard clash** | Same room, two classes, same day and slot |
+| Section clash | **Hard clash** | Same student section, two classes, same day and slot |
+| Daily limit | Warning | More classes in a day than allowed (default 5) |
+| Back-to-back fatigue | Warning | More consecutive classes than allowed (default 3). The lunch break resets the count |
+| Weekly overload | Warning | Weekly hours above the designation's cap (14 / 16 / 18) |
+| Lab in a lecture hall | Warning | A lab subject is scheduled in a non-lab room |
+| Room too small | Warning | Section strength is greater than room capacity |
+| Subject not mapped | Warning | Teacher is not listed as able to teach that subject |
+| Data problems | Warning | Unknown faculty / room, or a day / time slot not in Settings (useful after importing a file) |
+
+### Suggested fixes (one click for the admin)
+- **Reassign faculty**: another teacher from the same department who is free at that time, under their weekly limit, and preferably mapped to the subject.
+- **Change room**: a room that is actually free at that time, of the right type (lab / lecture hall) and big enough for the section. The smallest room that fits is chosen.
+- **Move to another slot**: the first day and slot when the teacher, the section and the room are all free.
+
+### Day-to-day use
+- **Admin login.** Anyone can view; only the admin can change data. Passwords are stored hashed and every form is protected against cross-site request forgery (CSRF).
+- **Manage faculty, rooms, sections and subjects** from the browser, including which teacher can teach which subject.
+- **Add, edit and delete classes.** You are warned immediately if a change causes a clash.
+- **Import** an existing timetable or faculty list from **Excel (.xlsx) or CSV**. Common column names ("Teacher", "Class", "Time" ...) and formats ("mon", "9:00-10:00") are understood. Bad rows are skipped and reported with their row number.
+- **Export** the timetable (CSV) and a full report (Excel with Timetable, Conflicts, Workload and Suggestions sheets).
+- **Leave & substitutes.** Mark a teacher on leave for a date. The app lists their classes that day with suggested substitutes, and you can print the day's arrangement for the notice board. The permanent timetable is not changed.
+- **Printable timetables** for every faculty member, section and room (A4 landscape, lunch break shown, can be saved as PDF).
+- **Reports & charts.** Summary numbers (busiest day, room usage %, overloaded faculty ...) and four matplotlib charts, each with a table view.
+- **Settings.** College name, working days (Saturday optional), time slots, lunch break, daily and back-to-back limits, weekly caps and the underload threshold.
+- **Backup.** The whole database can be downloaded as one file.
+- **Demo timetables** for presentations: clean, clashes, and overload.
+
+### Burnout-risk predictor (machine learning)
+A logistic-regression model predicts whether a faculty member is **Underloaded, Balanced or Overloaded** from lecture, lab, admin and research hours, number of subjects and teaching days. The dashboard can fill the form from a teacher's real timetable.
 
 ---
 
-## 📁 Directory Structure
+## 3. How it works
 
 ```
-PDL_lab_project/
-├── dataset/
-│   ├── faculty_workload.csv        # 400 faculty academic dataset
-│   └── generate_dataset.py         # Reproducible dataset generator
-├── model/
-│   ├── train.py                    # Multi-model benchmarking script
-│   ├── workload_model.joblib       # Trained production inference model
-│   └── model_metadata.json         # Metrics, odds ratios & guidelines
-├── core/
-│   ├── conflict_detector.py        # Algorithmic collision & fatigue engine
-│   └── scenarios.py                # Preconfigured demo institutional scenarios
-├── static/
-│   ├── css/
-│   │   └── style.css               # Clean academic operations stylesheet
-│   └── js/
-│       └── app.js                  # Dynamic UI, auto-resolve & scenario loader
-├── templates/
-│   └── index.html                  # Responsive operations dashboard
-├── app.py                          # Flask web server & REST API
-├── demo_cli.py                     # Terminal-based demo script
-├── requirements.txt                # Python dependencies
-├── .gitignore                      # Git ignore rules
-└── README.md                       # Documentation
+ Browser (HTML/CSS/JS)
+        │  pages + JSON API
+        ▼
+ app.py  (Flask routes, login, forms)
+        │
+        ├── core/database.py         SQLite: faculty, rooms, sections, subjects, timetable, leave, settings
+        ├── core/conflict_detector.py  all checks + fix suggestions (pure Python, no database)
+        ├── core/substitutes.py      substitute finder for leave days
+        ├── core/file_io.py          Excel/CSV import & export (pandas, openpyxl)
+        ├── core/reports.py          summary numbers & charts (pandas, matplotlib)
+        └── model/workload_model.joblib   trained scikit-learn model
 ```
+
+### Finding clashes
+Every class is put into dictionaries keyed by `(faculty, day, slot)`, `(room, day, slot)` and `(section, day, slot)`. If any key holds more than one class, that is a hard clash. This takes one pass over the timetable, so it stays fast even for large departments.
+
+### Back-to-back classes
+For each teacher and day, the slot numbers are sorted and the longest run of neighbouring slots is counted. A run is broken by a free slot **or by the lunch break** (set in Settings).
+
+### Workload Balance Index (WBI)
+For every faculty member: `utilization = hours assigned ÷ own weekly cap`.
+`WBI = 100 − (standard deviation of all utilizations × 100)`, kept between 0 and 100.
+Using utilization (not raw hours) is fair across designations: a Professor at 14/14 and an Assistant Professor at 18/18 are equally loaded.
+
+### Substitute choice
+Candidates must be in the same department, free at that slot, not on leave that day, not already substituting at that time, and below their weekly cap. They are sorted by: mapped to the subject first, then lowest current load.
 
 ---
 
-## 🚀 Quickstart & Execution
+## 4. Installation
 
-### 1. Installation
-
-Ensure Python 3.10+ is installed:
+Needs **Python 3.10 or newer**.
 
 ```bash
 git clone https://github.com/shaurya212121/PDL_lab_project.git
 cd PDL_lab_project
 pip install -r requirements.txt
-```
-
-### 2. Run Terminal CLI Demo
-
-Run the quick terminal verification script:
-```bash
-python demo_cli.py
-```
-Output:
-```text
-======================================================================
-   CLASHAUDIT: WORKLOAD DISTRIBUTION & CONFLICT DETECTOR
-   PDL Lab Mini Project Demonstration
-======================================================================
-
-[STEP 1] Running Analysis on Collision Scenario:
-  * Total Sessions Analyzed : 8
-  * Hard Conflicts Detected : 2
-  * Soft Warnings Detected  : 0
-  * Workload Balance Index  : 95.0%
-
-[DETECTED CONFLICTS]:
-  [Hard Conflict] Faculty Double-Booking: Dr. Rajesh Sharma (Monday 10:00 - 11:00)
-    --> Dr. Rajesh Sharma is simultaneously assigned to 2 classes at 10:00 - 11:00 on Monday: CS301 (CSE-A) in LH-101 & CS301 (CSE-B) in LH-102.
-  [Hard Conflict] Room Collision: LH-101 (Wednesday 11:00 - 12:00)
-    --> LH-101 is double-booked on Wednesday at 11:00 - 12:00 by: Prof. Ananya Iyer [CS302] & Dr. Amit Verma [CS303].
-
-[SMART AI RESOLUTION SUGGESTION]:
-  -> REASSIGN_FACULTY: Prof. Ananya Iyer is free on Monday at 10:00 - 11:00 and currently has available capacity (1 / 16 hrs).
-  -> CHANGE_ROOM: Move CS303 to vacant room LH-203 on Wednesday at 11:00 - 12:00.
-
-----------------------------------------------------------------------
-[STEP 2] Testing ML Workload Burnout Risk Classifier:
-  Input Faculty Profile:
-    - Designation    : Assistant Professor (AICTE Cap: 18 hrs)
-    - Teaching Hours : 16 hrs
-    - Lab Hours      : 8 hrs
-    - Total Hours    : 27 hrs/week
-
-  ML Prediction Result: Overloaded (High Burnout Risk)
-  Confidence          : 99.77%
-======================================================================
-```
-
-### 3. Launch Web Dashboard
-
-```bash
 python app.py
 ```
-Open **`http://127.0.0.1:5000`** in any web browser.
+
+Open **http://127.0.0.1:5000**.
+
+On first start the app creates `data/clashaudit.db` with sample faculty, rooms, sections, subjects and a clean demo timetable.
+
+### First login
+| Username | Password |
+|---|---|
+| `admin` | `admin123` |
+
+A yellow banner reminds you to **change this password** (top right → *Change password*) before anyone else uses the system.
+
+### Using it from other computers in the college
+`app.py` listens on all network addresses. Find the IP address of the computer running it (`ipconfig` on Windows, `ip addr` on Linux) and open `http://<that-ip>:5000` from any computer on the same network. Allow Python through the firewall if Windows asks.
+
+> The built-in Flask server is fine for a department-level tool on the college network. It should **not** be exposed to the public internet.
 
 ---
 
-## 📡 REST API Endpoints
+## 5. Setting it up for a real department
 
-- `GET /` — Web Dashboard UI
-- `GET /api/scenarios` — Returns preconfigured academic timetable scenarios
-- `POST /api/analyze` — Analyzes schedule, identifies clashes, computes WBI, and returns substitution recommendations
-- `POST /api/resolve` — Executes smart re-assignment to eliminate timetable collisions
-- `POST /api/predict-stress` — Runs ML pipeline on faculty hours to predict burnout probability
+1. **Log in** and change the password.
+2. **Settings:** enter the college name, working days, your actual time slots and the lunch break. Check the weekly caps.
+3. **Rooms, Sections & Subjects:** add your rooms (type + seats), sections (with number of students) and subjects (mark labs).
+4. **Faculty:** add faculty one by one or import a list. Click **Edit** on each one to tick the subjects they can teach.
+5. **Timetable:** clear the demo timetable, then import your timetable file or add classes one by one.
+6. **Dashboard:** fix every hard clash, review the warnings, and download the Excel report.
+7. **Print:** print faculty, section and room timetables.
+8. **Every day:** use **Leave & Substitutes** when someone is absent and print the arrangement.
+9. **Backup:** download a backup from Settings regularly.
+
+### Import file format
+Timetable (CSV or Excel). The first row must be the column names:
+
+| faculty_name | department | course_code | course_name | section | day | time_slot | room |
+|---|---|---|---|---|---|---|---|
+| Dr. Rajesh Sharma | CSE | CS301 | Operating Systems | CSE-A | Monday | 09:00 - 10:00 | LH-101 |
+
+`department` and `course_name` are optional (taken from the faculty / subject lists). Sample files are in `dataset/samples/` and can also be downloaded from the app.
+
+Faculty list: `name, department, designation` (+ optional `max_hours`). Designations such as "Asst. Prof", "Assoc Professor" and "HOD" are recognised.
 
 ---
 
-## 📜 License
+## 6. Project structure
 
-Created for the **Python Data Lab (PDL)** Mini Project.
+```
+PDL_lab_project/
+├── app.py                      Flask web app: pages, login, JSON API
+├── demo_cli.py                 terminal demo; can also check your own CSV/Excel file
+├── requirements.txt
+├── core/
+│   ├── conflict_detector.py    clash checks, workload, WBI, fix suggestions
+│   ├── database.py             SQLite tables and helper functions, demo data
+│   ├── file_io.py              Excel/CSV import and export
+│   ├── reports.py              summary numbers and matplotlib charts
+│   ├── scenarios.py            three demo timetables
+│   └── substitutes.py          leave-day substitute finder
+├── model/
+│   ├── train.py                trains and compares 4 ML models
+│   ├── workload_model.joblib   saved model (retrained automatically if incompatible)
+│   └── model_metadata.json     accuracy figures shown in the app
+├── dataset/
+│   ├── faculty_workload.csv    400-faculty training dataset
+│   ├── generate_dataset.py     script that generated the dataset
+│   └── samples/                sample import files
+├── templates/                  HTML pages (Jinja2)
+├── static/css, static/js       styles and dashboard script
+├── tests/                      unit tests (unittest)
+└── data/                       created at runtime: database + secret key (not in Git)
+```
+
+### Database tables
+`faculty`, `rooms`, `sections`, `subjects`, `faculty_subjects` (who can teach what), `timetable`, `leaves`, `substitutions`, `settings`, `users`.
+
+---
+
+## 7. Machine learning model
+
+Dataset: 400 synthetic faculty records (`dataset/faculty_workload.csv`) across CSE, IT, AI-DS and ECE, labelled Underloaded / Balanced / Overloaded.
+Features: designation, teaching hours, lab hours, admin hours, research hours, number of subjects, teaching days.
+Preprocessing: `StandardScaler` for numbers, `OneHotEncoder` for designation, inside a scikit-learn `Pipeline`.
+Evaluation: stratified 80/20 split plus 5-fold stratified cross-validation.
+
+| Model | Test accuracy | Precision | Recall | F1 | 5-fold CV |
+|---|---|---|---|---|---|
+| **Logistic Regression (used)** | **96.25%** | **96.52%** | **96.25%** | **96.24%** | **95.50% ± 1.7** |
+| Decision Tree | 93.75% | 94.04% | 93.75% | 93.76% | 90.00% ± 3.95 |
+| Random Forest | 91.25% | 92.58% | 91.25% | 91.19% | 92.25% ± 3.1 |
+| Gaussian Naive Bayes | 48.75% | 50.42% | 48.75% | 41.16% | 53.50% ± 2.15 |
+
+Logistic Regression was chosen for the best accuracy, the most stable cross-validation score, and coefficients that are easy to interpret. Retrain with `python model/train.py`. If the saved model was made with a different scikit-learn version, the app retrains it automatically on start-up.
+
+The dataset is synthetic, so the predictor is a guide, not a measurement. The timetable checks do not depend on it.
+
+---
+
+## 8. Testing
+
+```bash
+python -m unittest discover tests -v
+```
+
+33 tests cover every conflict rule (including the lunch-break case), the fix suggestions, the balance index, the three demo scenarios, file import (column aliases, a single "Subject" column, bad rows, wrong file types), login, CSRF protection, applying fixes, delete protection and the leave page. Tests use a temporary database and never touch `data/`.
+
+Terminal demo:
+```bash
+python demo_cli.py                                   # demo timetable with clashes
+python demo_cli.py dataset/samples/timetable_sample.csv   # check any CSV/Excel timetable
+```
+
+---
+
+## 9. Data, security and backup
+
+- All data lives in **one file**: `data/clashaudit.db`. Download a backup from **Settings**. To restore, stop the app and put the backup file back in `data/`.
+- `data/` is in `.gitignore`, so the college's real data and the secret key are never uploaded to GitHub.
+- Passwords are hashed with Werkzeug. Every form carries a CSRF token. Uploads are limited to 5 MB.
+- Faculty, rooms, sections and subjects that are still used in the timetable cannot be deleted by accident.
+
+---
+
+## 10. Limitations & future scope
+
+- Every slot counts as one hour. Two-hour labs are entered as two consecutive slots.
+- One admin account. Separate HOD / faculty logins could be added.
+- The timetable is checked and repaired, not generated from scratch. An automatic timetable generator would be a natural next step.
+- Email or SMS alerts to substitutes.
+- Semester-wise history so workload can be compared across terms.
+
+---
+
+## API (used by the dashboard)
+
+| Method | URL | Purpose |
+|---|---|---|
+| GET | `/api/report` | Current timetable + full analysis |
+| POST | `/api/analyze` | Analyse a timetable sent as JSON (nothing is saved) |
+| POST | `/api/resolve` | Apply one suggested fix (admin) |
+| POST | `/api/predict-stress` | Burnout-risk prediction |
+| GET | `/api/model-info` | Model metrics |
+| GET | `/api/scenarios` | Demo timetables |
+| GET | `/api/health` | Health check |
+
+---
+
+*Created for the Python Data Lab (PDL) mini project.*

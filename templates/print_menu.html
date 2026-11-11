@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Print timetables{% endblock %}
+{% block content %}
+<div class="card">
+  <h3>Printable timetables</h3>
+  <p class="card-desc">Open a timetable and press <strong>Print</strong> (or Ctrl + P). You can also save it as a PDF from the print window.</p>
+  <div class="print-menu">
+    <div>
+      <h4>Faculty</h4>
+      <ul>{% for f in faculty %}<li><a href="{{ url_for('print_timetable', kind='faculty', name=f.name) }}">{{ f.name }}</a></li>{% else %}<li class="muted">None</li>{% endfor %}</ul>
+    </div>
+    <div>
+      <h4>Sections</h4>
+      <ul>{% for s in sections %}<li><a href="{{ url_for('print_timetable', kind='section', name=s.name) }}">{{ s.name }}</a></li>{% else %}<li class="muted">None</li>{% endfor %}</ul>
+    </div>
+    <div>
+      <h4>Rooms</h4>
+      <ul>{% for r in rooms %}<li><a href="{{ url_for('print_timetable', kind='room', name=r.name) }}">{{ r.name }}</a></li>{% else %}<li class="muted">None</li>{% endfor %}</ul>
+    </div>
+  </div>
+  {% if is_admin %}
+  <p class="hint">Substitute arrangement for a day: <a href="{{ url_for('print_arrangements', date=today) }}">today's list</a> (other dates from the Leave page).</p>
+  {% endif %}
+</div>
+{% endblock %}

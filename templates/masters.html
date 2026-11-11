@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Rooms, Sections & Subjects{% endblock %}
+{% macro delete_button(url, label) -%}
+  <form method="post" action="{{ url }}" data-confirm="Remove {{ label }}?">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button class="link-btn danger" type="submit">Delete</button>
+  </form>
+{%- endmacro %}
+{% block content %}
+<datalist id="deptList">{% for d in departments %}<option value="{{ d }}">{% endfor %}</datalist>
+{% if is_admin %}<p class="hint">To change an item, add it again with the <strong>same name/code</strong>. The old details are replaced.</p>{% endif %}
+
+<div class="grid-2col">
+  <!-- Rooms -->
+  <div class="card" id="rooms">
+    <h3>Rooms ({{ rooms|length }})</h3>
+    <p class="card-desc">Lab subjects must be in a Lab. The section strength must fit the room capacity.</p>
+    <table class="data-table">
+      <thead><tr><th>Room</th><th>Type</th><th>Seats</th><th></th></tr></thead>
+      <tbody>
+        {% for r in rooms %}
+        <tr>
+          <td><strong>{{ r.name }}</strong></td><td>{{ r.room_type }}</td><td>{{ r.capacity }}</td>
+          <td class="actions">
+            <a class="link-sm" href="{{ url_for('print_timetable', kind='room', name=r.name) }}">Timetable</a>
+            {% if is_admin %}{{ delete_button(url_for('room_delete', name=r.name), r.name) }}{% endif %}
+          </td>
+        </tr>
+        {% else %}<tr><td colspan="4" class="muted">No rooms yet.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+    {% if is_admin %}
+    <form method="post" action="{{ url_for('room_save') }}" class="inline-add">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input name="name" placeholder="Room (e.g. LH-104)" required aria-label="Room name">
+      <select name="room_type" aria-label="Room type">{% for t in room_types %}<option>{{ t }}</option>{% endfor %}</select>
+      <input name="capacity" type="number" min="1" placeholder="Seats" required aria-label="Seats">
+      <button class="btn btn-primary btn-sm" type="submit">Save</button>
+    </form>
+    {% endif %}
+  </div>
+
+  <!-- Sections -->
+  <div class="card" id="sections">
+    <h3>Sections ({{ sections|length }})</h3>
+    <p class="card-desc">Student groups. A section cannot have two classes at the same time.</p>
+    <table class="data-table">
+      <thead><tr><th>Section</th><th>Department</th><th>Students</th><th></th></tr></thead>
+      <tbody>
+        {% for s in sections %}
+        <tr>
+          <td><strong>{{ s.name }}</strong></td><td>{{ s.department }}</td><td>{{ s.strength }}</td>
+          <td class="actions">
+            <a class="link-sm" href="{{ url_for('print_timetable', kind='section', name=s.name) }}">Timetable</a>
+            {% if is_admin %}{{ delete_button(url_for('section_delete', name=s.name), s.name) }}{% endif %}
+          </td>
+        </tr>
+        {% else %}<tr><td colspan="4" class="muted">No sections yet.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+    {% if is_admin %}
+    <form method="post" action="{{ url_for('section_save') }}" class="inline-add">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input name="name" placeholder="Section (e.g. CSE-C)" required aria-label="Section name">
+      <input name="department" list="deptList" placeholder="Department" required aria-label="Department">
+      <input name="strength" type="number" min="1" placeholder="Students" required aria-label="Students">
+      <button class="btn btn-primary btn-sm" type="submit">Save</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Subjects -->
+<div class="card" id="subjects">
+  <h3>Subjects ({{ subjects|length }})</h3>
+  <p class="card-desc">Choose which teachers can take each subject on the <a href="{{ url_for('faculty_page') }}">Faculty</a> page (Edit).</p>
+  <div class="table-responsive">
+    <table class="data-table">
+      <thead><tr><th>Code</th><th>Name</th><th>Department</th><th>Type</th><th>Can be taught by</th><th></th></tr></thead>
+      <tbody>
+        {% for s in subjects %}
+        <tr>
+          <td><strong>{{ s.code }}</strong></td><td>{{ s.name }}</td><td>{{ s.department }}</td>
+          <td>{% if s.is_lab %}<span class="tag-badge purple">Lab</span>{% else %}Theory{% endif %}</td>
+          <td class="muted">{{ teachers.get(s.code, [])|join(', ') or 'Anyone (not mapped yet)' }}</td>
+          <td class="actions">{% if is_admin %}{{ delete_button(url_for('subject_delete', code=s.code), s.code) }}{% endif %}</td>
+        </tr>
+        {% else %}<tr><td colspan="6" class="muted">No subjects yet.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if is_admin %}
+  <form method="post" action="{{ url_for('subject_save') }}" class="inline-add">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input name="code" placeholder="Code (e.g. CS307)" required aria-label="Subject code">
+    <input name="name" placeholder="Subject name" required aria-label="Subject name">
+    <input name="department" list="deptList" placeholder="Department" required aria-label="Department">
+    <select name="is_lab" aria-label="Type"><option value="0">Theory</option><option value="1">Lab</option></select>
+    <button class="btn btn-primary btn-sm" type="submit">Save</button>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}

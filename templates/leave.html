@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}Leave & Substitutes{% endblock %}
+{% block content %}
+
+<div class="grid-2col">
+  <div class="card">
+    <h3>Mark a faculty member on leave</h3>
+    <p class="card-desc">Their classes on that day are listed below with suggested substitutes.
+      The permanent timetable is <strong>not</strong> changed.</p>
+    <form method="post" action="{{ url_for('leave_add') }}" class="stack-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="form-row">
+        <div class="form-group">
+          <label for="lv_fac">Faculty</label>
+          <select id="lv_fac" name="faculty_name" required>
+            <option value="">-- choose --</option>
+            {% for f in faculty %}<option value="{{ f.name }}">{{ f.name }} ({{ f.department }})</option>{% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="lv_date">Date</label>
+          <input id="lv_date" name="leave_date" type="date" value="{{ today }}" min="{{ today }}" required>
+        </div>
+      </div>
+      <div class="form-group"><label for="lv_reason">Reason (optional)</label><input id="lv_reason" name="reason" placeholder="e.g. Medical leave, conference"></div>
+      <button class="btn btn-primary" type="submit">Save leave</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h3>Print the day's arrangement</h3>
+    <p class="card-desc">A list of all substitute classes for one date, for the notice board.</p>
+    <form method="get" action="{{ url_for('print_arrangements') }}" class="stack-form">
+      <div class="form-group"><label for="arr_date">Date</label><input id="arr_date" name="date" type="date" value="{{ today }}"></div>
+      <button class="btn btn-secondary" type="submit">Open printable list</button>
+    </form>
+    <p class="hint">How substitutes are chosen: same department, free at that time, not on leave,
+      under their weekly limit. Teachers mapped to the subject come first, then the least loaded.</p>
+  </div>
+</div>
+
+{% for lv in upcoming %}
+<div class="card" id="leave-{{ lv.id }}">
+  <div class="card-header-flex">
+    <div>
+      <h3>{{ lv.faculty_name }} &bull; {{ lv.weekday }} {{ lv.leave_date }}{% if lv.leave_date == today %} <span class="tag-badge blue">Today</span>{% endif %}</h3>
+      <p class="card-desc">{{ lv.reason or 'No reason given' }} &bull; {{ lv.classes|length }} class(es) to cover</p>
+    </div>
+    <form method="post" action="{{ url_for('leave_delete', leave_id=lv.id) }}" data-confirm="Cancel this leave and its substitute arrangements?">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="btn btn-danger-outline btn-sm" type="submit">Cancel leave</button>
+    </form>
+  </div>
+
+  {% if lv.classes %}
+  <table class="data-table">
+    <thead><tr><th>Time</th><th>Subject</th><th>Section</th><th>Room</th><th>Substitute</th></tr></thead>
+    <tbody>
+      {% for c in lv.classes %}
+      <tr>
+        <td><code>{{ c.entry.time_slot }}</code></td>
+        <td><strong>{{ c.entry.course_code }}</strong> <span class="muted">{{ c.entry.course_name }}</span></td>
+        <td>{{ c.entry.section }}</td>
+        <td>{{ c.entry.room }}</td>
+        <td>
+          {% if c.assigned %}
+            <span class="tag-badge green">{{ c.assigned }}</span>
+            <form method="post" class="inline" action="{{ url_for('leave_unassign', leave_id=lv.id, timetable_id=c.entry.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="link-btn" type="submit">Change</button>
+            </form>
+          {% elif c.options %}
+            <form method="post" class="inline-add tight" action="{{ url_for('leave_assign', leave_id=lv.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="timetable_id" value="{{ c.entry.id }}">
+              <select name="substitute" aria-label="Substitute">
+                {% for o in c.options %}
+                  <option value="{{ o.name }}">{{ o.name }} - {{ o.load }}/{{ o.max_hours }} hrs{{ '' if o.qualified else ' (not mapped to subject)' }}</option>
+                {% endfor %}
+              </select>
+              <button class="btn btn-primary btn-sm" type="submit">Assign</button>
+            </form>
+          {% else %}
+            <span class="tag-badge red">No one free</span>
+            <span class="muted">Consider rescheduling this class.</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">{{ lv.faculty_name }} has no classes on {{ lv.weekday }}.</p>
+  {% endif %}
+</div>
+{% else %}
+<div class="card"><p class="muted">No upcoming leave.</p></div>
+{% endfor %}
+
+{% if past %}
+<div class="card">
+  <h3>Past leave</h3>
+  <table class="data-table">
+    <thead><tr><th>Date</th><th>Faculty</th><th>Reason</th><th></th></tr></thead>
+    <tbody>
+      {% for lv in past %}
+      <tr>
+        <td>{{ lv.leave_date }}</td><td>{{ lv.faculty_name }}</td><td class="muted">{{ lv.reason or '-' }}</td>
+        <td class="actions">
+          <form method="post" action="{{ url_for('leave_delete', leave_id=lv.id) }}" data-confirm="Delete this leave record?">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="link-btn danger" type="submit">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}

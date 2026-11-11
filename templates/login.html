@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Admin login{% endblock %}
+{% block content %}
+<div class="card narrow-card">
+  <h3>Admin login</h3>
+  <p class="card-desc">Log in to add or change the timetable, faculty, rooms, leave and settings.
+    Anyone can view the timetable and reports without logging in.</p>
+  <form method="post" class="stack-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-group">
+      <label for="username">Username</label>
+      <input id="username" name="username" required autofocus autocomplete="username">
+    </div>
+    <div class="form-group">
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" required autocomplete="current-password">
+    </div>
+    <button class="btn btn-primary" type="submit">Log in</button>
+  </form>
+  <p class="hint">First time? The starting account is <code>admin</code> / <code>admin123</code>. Change the password right after logging in.</p>
+</div>
+{% endblock %}

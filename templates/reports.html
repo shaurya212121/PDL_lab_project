@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Reports{% endblock %}
+{% block content %}
+
+<div class="card">
+  <div class="card-header-flex">
+    <div>
+      <h3>Summary</h3>
+      <p class="card-desc">Calculated from the current timetable with pandas.</p>
+    </div>
+    <div class="btn-row">
+      <a class="btn btn-secondary-sm" href="{{ url_for('download_report') }}">⬇ Full report (Excel)</a>
+      <a class="btn btn-secondary-sm" href="{{ url_for('download_timetable') }}">⬇ Timetable (CSV)</a>
+    </div>
+  </div>
+  <div class="summary-grid">
+    <div class="summary-tile"><span class="big">{{ stats.total_classes }}</span><span>classes per week</span></div>
+    <div class="summary-tile"><span class="big">{{ stats.faculty_count }}</span><span>faculty</span></div>
+    <div class="summary-tile"><span class="big">{{ stats.critical }}</span><span>hard clashes</span></div>
+    <div class="summary-tile"><span class="big">{{ stats.warnings }}</span><span>warnings</span></div>
+    <div class="summary-tile"><span class="big">{{ stats.overloaded }}</span><span>overloaded faculty</span></div>
+    <div class="summary-tile"><span class="big">{{ stats.underloaded }}</span><span>underloaded faculty</span></div>
+    <div class="summary-tile"><span class="big">{{ stats.busiest_day }}</span><span>busiest day ({{ stats.busiest_day_count }} classes)</span></div>
+    <div class="summary-tile"><span class="big">{{ stats.top_department }}</span><span>most teaching hours ({{ stats.top_department_hours }})</span></div>
+    <div class="summary-tile"><span class="big">{{ stats.room_usage_percent }}%</span><span>of room slots in use</span></div>
+  </div>
+</div>
+
+<div class="card">
+  <h3>Faculty workload (% of weekly limit)</h3>
+  <p class="card-desc">The dashed line is the weekly limit. Bars past it are overloaded.</p>
+  <img class="chart" src="{{ url_for('chart_image', name='workload') }}" alt="Bar chart of each faculty member's weekly hours as a percentage of their limit">
+  <details>
+    <summary>Show as table</summary>
+    <table class="data-table">
+      <thead><tr><th>Faculty</th><th>Department</th><th>Hours</th><th>Limit</th><th>%</th><th>Status</th></tr></thead>
+      <tbody>
+        {% for w in workload %}
+        <tr><td>{{ w.faculty_name }}</td><td>{{ w.department }}</td><td>{{ w.assigned_hours }}</td><td>{{ w.max_hours }}</td><td>{{ w.utilization_percentage }}%</td><td>{{ w.status }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </details>
+</div>
+
+<div class="grid-2col">
+  <div class="card">
+    <h3>Classes per day</h3>
+    <img class="chart" src="{{ url_for('chart_image', name='days') }}" alt="Bar chart of number of classes on each working day">
+  </div>
+  <div class="card">
+    <h3>Teaching hours per department</h3>
+    <img class="chart" src="{{ url_for('chart_image', name='departments') }}" alt="Bar chart of weekly teaching hours per department">
+  </div>
+</div>
+
+<div class="card">
+  <h3>Room usage</h3>
+  <p class="card-desc">Out of {{ settings.working_days|length * settings.time_slots|length }} slots per week for each room.</p>
+  <img class="chart" src="{{ url_for('chart_image', name='rooms') }}" alt="Bar chart of the share of weekly slots each room is used">
+  <details>
+    <summary>Show as table</summary>
+    <table class="data-table">
+      <thead><tr><th>Room</th><th>Type</th><th>Slots used</th><th>%</th></tr></thead>
+      <tbody>
+        {% for r in room_usage %}<tr><td>{{ r.room }}</td><td>{{ r.type }}</td><td>{{ r.used }} / {{ r.total }}</td><td>{{ r.percent }}%</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </details>
+</div>
+{% endblock %}
