@@ -1,77 +1,123 @@
 """
-Predefined Timetable Scenarios for Instant Lab Demonstrations
+Ready-made demo timetables.
+
+They are used for the demo (Settings page -> "Load demo timetable") and by
+the tests. Loading a scenario REPLACES the current timetable.
 """
+
+
+def cls(entry_id, faculty, dept, code, name, section, day, slot, room):
+    """Small helper so each class fits on one line."""
+    return {"id": entry_id, "faculty_name": faculty, "department": dept,
+            "course_code": code, "course_name": name, "section": section,
+            "day": day, "time_slot": slot, "room": room}
+
+
+# Time slot names (short variables make the lists below easier to read)
+S09, S10, S11, S12 = "09:00 - 10:00", "10:00 - 11:00", "11:00 - 12:00", "12:00 - 01:00"
+S02, S03, S04 = "02:00 - 03:00", "03:00 - 04:00", "04:00 - 05:00"
+
+RAJESH, ANANYA, AMIT, PRIYA = "Dr. Rajesh Sharma", "Prof. Ananya Iyer", "Dr. Amit Verma", "Dr. Priya Nair"
+SURESH, SNEHA, VIKRAM, POOJA = "Dr. Suresh Patel", "Prof. Sneha Deshmukh", "Dr. Vikram Gupta", "Dr. Pooja Menon"
+
+
+# ---------------------------------------------------------------------------
+# Scenario A: a clean timetable with no problems
+# ---------------------------------------------------------------------------
+BALANCED = [
+    cls("S1", RAJESH, "CSE", "CS301", "Operating Systems", "CSE-A", "Monday", S09, "LH-101"),
+    cls("S2", ANANYA, "CSE", "CS302", "Database Systems", "CSE-B", "Monday", S10, "LH-102"),
+    cls("S3", AMIT, "CSE", "CS303", "Computer Networks", "CSE-A", "Monday", S11, "LH-101"),
+    cls("S4", PRIYA, "CSE", "CS304", "Algorithms", "CSE-B", "Monday", S02, "LH-103"),
+
+    cls("S5", RAJESH, "CSE", "CS301", "Operating Systems", "CSE-A", "Tuesday", S09, "LH-101"),
+    cls("S6", ANANYA, "CSE", "CS302", "Database Systems", "CSE-B", "Tuesday", S11, "LH-102"),
+    cls("S7", AMIT, "CSE", "CS303", "Computer Networks", "CSE-A", "Tuesday", S02, "LH-101"),
+    cls("S8", SURESH, "IT", "IT301", "Web Technologies", "IT-A", "Tuesday", S10, "LH-201"),
+
+    cls("S9", SNEHA, "IT", "IT302", "Cloud Computing", "IT-A", "Wednesday", S09, "LH-201"),
+    cls("S10", VIKRAM, "AI-DS", "AI301", "Machine Learning", "AI-A", "Wednesday", S10, "LH-301"),
+    cls("S11", POOJA, "AI-DS", "AI302", "Deep Learning", "AI-A", "Wednesday", S11, "LH-301"),
+    cls("S12", PRIYA, "CSE", "CS304", "Algorithms", "CSE-A", "Wednesday", S02, "LH-103"),
+
+    cls("S13", SURESH, "IT", "IT301", "Web Technologies", "IT-A", "Thursday", S09, "LH-201"),
+    cls("S14", VIKRAM, "AI-DS", "AI301", "Machine Learning", "AI-A", "Thursday", S11, "LH-301"),
+    cls("S15", ANANYA, "CSE", "CS302", "Database Systems", "CSE-A", "Thursday", S02, "LH-102"),
+    cls("S16", POOJA, "AI-DS", "AI302", "Deep Learning", "AI-A", "Thursday", S03, "LH-301"),
+]
+
+# ---------------------------------------------------------------------------
+# Scenario B: hard clashes (faculty, room, section) + a lab in a lecture hall
+# ---------------------------------------------------------------------------
+COLLISION = [
+    # Faculty clash: Dr. Rajesh Sharma in two classes on Monday 10:00
+    cls("C1", RAJESH, "CSE", "CS301", "Operating Systems", "CSE-A", "Monday", S10, "LH-101"),
+    cls("C2", RAJESH, "CSE", "CS301", "Operating Systems", "CSE-B", "Monday", S10, "LH-102"),
+    # Room clash: LH-101 used by two teachers on Wednesday 11:00
+    cls("C3", ANANYA, "CSE", "CS302", "Database Systems", "CSE-A", "Wednesday", S11, "LH-101"),
+    cls("C4", AMIT, "CSE", "CS303", "Computer Networks", "CSE-B", "Wednesday", S11, "LH-101"),
+    # Section clash: CSE-A students have two classes on Tuesday 09:00
+    cls("C5", PRIYA, "CSE", "CS304", "Algorithms", "CSE-A", "Tuesday", S09, "LH-103"),
+    cls("C9", ANANYA, "CSE", "CS302", "Database Systems", "CSE-A", "Tuesday", S09, "LH-102"),
+    # Lab subject placed in a lecture hall
+    cls("C10", PRIYA, "CSE", "CS305", "Data Structures Lab", "CSE-B", "Friday", S10, "LH-103"),
+    # Normal classes
+    cls("C6", SURESH, "IT", "IT301", "Web Technologies", "IT-A", "Tuesday", S11, "LH-201"),
+    cls("C7", SNEHA, "IT", "IT302", "Cloud Computing", "IT-A", "Thursday", S10, "LH-201"),
+    cls("C8", VIKRAM, "AI-DS", "AI301", "Machine Learning", "AI-A", "Thursday", S02, "LH-301"),
+]
+
+# ---------------------------------------------------------------------------
+# Scenario C: overload and fatigue
+# Dr. Amit Verma (Assistant Professor, cap 18 hrs) gets 19 hours,
+# Dr. Priya Nair teaches 4 classes back-to-back on Tuesday morning.
+# ---------------------------------------------------------------------------
+OVERLOAD = [
+    cls("O1", PRIYA, "CSE", "CS304", "Algorithms", "CSE-A", "Tuesday", S09, "LH-103"),
+    cls("O2", PRIYA, "CSE", "CS304", "Algorithms", "CSE-B", "Tuesday", S10, "LH-103"),
+    cls("O3", PRIYA, "CSE", "CS305", "Data Structures Lab", "CSE-A", "Tuesday", S11, "Lab-1"),
+    cls("O4", PRIYA, "CSE", "CS305", "Data Structures Lab", "CSE-A", "Tuesday", S12, "Lab-1"),
+
+    cls("O5", AMIT, "CSE", "CS303", "Computer Networks", "CSE-A", "Monday", S09, "LH-102"),
+    cls("O6", AMIT, "CSE", "CS303", "Computer Networks", "CSE-B", "Monday", S11, "LH-102"),
+    cls("O7", AMIT, "CSE", "CS303", "Computer Networks", "CSE-B", "Monday", S03, "LH-102"),
+    cls("O8", AMIT, "CSE", "CS303", "Computer Networks", "CSE-A", "Monday", S04, "LH-102"),
+    cls("O9", AMIT, "CSE", "CS303", "Computer Networks", "CSE-B", "Tuesday", S09, "LH-102"),
+    cls("O10", AMIT, "CSE", "CS303", "Computer Networks", "CSE-B", "Tuesday", S11, "LH-102"),
+    cls("O11", AMIT, "CSE", "CS306", "Network Lab", "CSE-A", "Tuesday", S02, "Lab-2"),
+    cls("O12", AMIT, "CSE", "CS306", "Network Lab", "CSE-A", "Tuesday", S03, "Lab-2"),
+    cls("O13", AMIT, "CSE", "CS303", "Computer Networks", "CSE-A", "Wednesday", S09, "LH-102"),
+    cls("O14", AMIT, "CSE", "CS303", "Computer Networks", "CSE-B", "Wednesday", S10, "LH-102"),
+    cls("O15", AMIT, "CSE", "CS303", "Computer Networks", "CSE-B", "Wednesday", S02, "LH-102"),
+    cls("O16", AMIT, "CSE", "CS303", "Computer Networks", "CSE-A", "Wednesday", S03, "LH-102"),
+    cls("O17", AMIT, "CSE", "CS306", "Network Lab", "CSE-A", "Thursday", S09, "Lab-2"),
+    cls("O18", AMIT, "CSE", "CS306", "Network Lab", "CSE-A", "Thursday", S10, "Lab-2"),
+    cls("O19", AMIT, "CSE", "CS303", "Computer Networks", "CSE-B", "Thursday", S02, "LH-102"),
+    cls("O20", AMIT, "CSE", "CS303", "Computer Networks", "CSE-B", "Thursday", S04, "LH-102"),
+    cls("O21", AMIT, "CSE", "CS303", "Computer Networks", "CSE-A", "Friday", S09, "LH-102"),
+    cls("O22", AMIT, "CSE", "CS306", "Network Lab", "CSE-B", "Friday", S02, "Lab-2"),
+    cls("O23", AMIT, "CSE", "CS306", "Network Lab", "CSE-B", "Friday", S03, "Lab-2"),
+
+    cls("O24", RAJESH, "CSE", "CS301", "Operating Systems", "CSE-A", "Monday", S02, "LH-101"),
+    cls("O25", SNEHA, "IT", "IT302", "Cloud Computing", "IT-A", "Wednesday", S10, "LH-201"),
+]
 
 SCENARIOS = {
     "balanced": {
-        "title": "Scenario A: Optimal & Balanced Timetable",
-        "description": "Standard institutional schedule with zero collisions, distributed load across all designations, and balanced weekly quotas.",
-        "schedule": [
-            {"id": "S1", "faculty_name": "Dr. Rajesh Sharma", "department": "CSE", "course_code": "CS301", "course_name": "Operating Systems", "section": "CSE-A", "day": "Monday", "time_slot": "09:00 - 10:00", "room": "LH-101"},
-            {"id": "S2", "faculty_name": "Prof. Ananya Iyer", "department": "CSE", "course_code": "CS302", "course_name": "Database Systems", "section": "CSE-B", "day": "Monday", "time_slot": "10:00 - 11:00", "room": "LH-102"},
-            {"id": "S3", "faculty_name": "Dr. Amit Verma", "department": "CSE", "course_code": "CS303", "course_name": "Computer Networks", "section": "CSE-A", "day": "Monday", "time_slot": "11:00 - 12:00", "room": "LH-101"},
-            {"id": "S4", "faculty_name": "Dr. Priya Nair", "department": "CSE", "course_code": "CS304", "course_name": "Algorithms", "section": "CSE-B", "day": "Monday", "time_slot": "02:00 - 03:00", "room": "LH-103"},
-
-            {"id": "S5", "faculty_name": "Dr. Rajesh Sharma", "department": "CSE", "course_code": "CS301", "course_name": "Operating Systems", "section": "CSE-A", "day": "Tuesday", "time_slot": "09:00 - 10:00", "room": "LH-101"},
-            {"id": "S6", "faculty_name": "Prof. Ananya Iyer", "department": "CSE", "course_code": "CS302", "course_name": "Database Systems", "section": "CSE-B", "day": "Tuesday", "time_slot": "11:00 - 12:00", "room": "LH-102"},
-            {"id": "S7", "faculty_name": "Dr. Amit Verma", "department": "CSE", "course_code": "CS303", "course_name": "Computer Networks", "section": "CSE-A", "day": "Tuesday", "time_slot": "02:00 - 03:00", "room": "LH-101"},
-            {"id": "S8", "faculty_name": "Dr. Suresh Patel", "department": "IT", "course_code": "IT301", "course_name": "Web Technologies", "section": "IT-A", "day": "Tuesday", "time_slot": "10:00 - 11:00", "room": "LH-201"},
-
-            {"id": "S9", "faculty_name": "Prof. Sneha Deshmukh", "department": "IT", "course_code": "IT302", "course_name": "Cloud Computing", "section": "IT-A", "day": "Wednesday", "time_slot": "09:00 - 10:00", "room": "LH-201"},
-            {"id": "S10", "faculty_name": "Dr. Vikram Gupta", "department": "AI-DS", "course_code": "AI301", "course_name": "Machine Learning", "section": "AI-A", "day": "Wednesday", "time_slot": "10:00 - 11:00", "room": "LH-301"},
-            {"id": "S11", "faculty_name": "Dr. Pooja Menon", "department": "AI-DS", "course_code": "AI302", "course_name": "Deep Learning", "section": "AI-A", "day": "Wednesday", "time_slot": "11:00 - 12:00", "room": "LH-301"},
-            {"id": "S12", "faculty_name": "Dr. Priya Nair", "department": "CSE", "course_code": "CS304", "course_name": "Algorithms", "section": "CSE-A", "day": "Wednesday", "time_slot": "02:00 - 03:00", "room": "LH-103"},
-
-            {"id": "S13", "faculty_name": "Dr. Suresh Patel", "department": "IT", "course_code": "IT301", "course_name": "Web Technologies", "section": "IT-A", "day": "Thursday", "time_slot": "09:00 - 10:00", "room": "LH-201"},
-            {"id": "S14", "faculty_name": "Dr. Vikram Gupta", "department": "AI-DS", "course_code": "AI301", "course_name": "Machine Learning", "section": "AI-A", "day": "Thursday", "time_slot": "11:00 - 12:00", "room": "LH-301"},
-            {"id": "S15", "faculty_name": "Prof. Ananya Iyer", "department": "CSE", "course_code": "CS302", "course_name": "Database Systems", "section": "CSE-A", "day": "Thursday", "time_slot": "02:00 - 03:00", "room": "LH-102"},
-            {"id": "S16", "faculty_name": "Dr. Pooja Menon", "department": "AI-DS", "course_code": "AI302", "course_name": "Deep Learning", "section": "AI-A", "day": "Thursday", "time_slot": "03:00 - 04:00", "room": "LH-301"}
-        ]
+        "title": "Scenario A: Clean timetable",
+        "description": "No clashes, every teacher within their weekly limit.",
+        "schedule": BALANCED,
     },
-
     "collision": {
-        "title": "Scenario B: Critical Collisions (Faculty & Room Double-Booking)",
-        "description": "Simulates real-world scheduling blunders: Dr. Rajesh Sharma double-booked on Monday 10:00-11:00, and Room LH-101 double-booked on Wednesday.",
-        "schedule": [
-            # Hard Clash 1: Dr. Rajesh Sharma assigned to two sections at same time
-            {"id": "C1", "faculty_name": "Dr. Rajesh Sharma", "department": "CSE", "course_code": "CS301", "course_name": "Operating Systems", "section": "CSE-A", "day": "Monday", "time_slot": "10:00 - 11:00", "room": "LH-101"},
-            {"id": "C2", "faculty_name": "Dr. Rajesh Sharma", "department": "CSE", "course_code": "CS301", "course_name": "Operating Systems", "section": "CSE-B", "day": "Monday", "time_slot": "10:00 - 11:00", "room": "LH-102"},
-
-            # Hard Clash 2: Room LH-101 double-booked by two different faculty at same time
-            {"id": "C3", "faculty_name": "Prof. Ananya Iyer", "department": "CSE", "course_code": "CS302", "course_name": "Database Systems", "section": "CSE-A", "day": "Wednesday", "time_slot": "11:00 - 12:00", "room": "LH-101"},
-            {"id": "C4", "faculty_name": "Dr. Amit Verma", "department": "CSE", "course_code": "CS303", "course_name": "Computer Networks", "section": "CSE-B", "day": "Wednesday", "time_slot": "11:00 - 12:00", "room": "LH-101"},
-
-            # Standard slots
-            {"id": "C5", "faculty_name": "Dr. Priya Nair", "department": "CSE", "course_code": "CS304", "course_name": "Algorithms", "section": "CSE-A", "day": "Tuesday", "time_slot": "09:00 - 10:00", "room": "LH-103"},
-            {"id": "C6", "faculty_name": "Dr. Suresh Patel", "department": "IT", "course_code": "IT301", "course_name": "Web Technologies", "section": "IT-A", "day": "Tuesday", "time_slot": "11:00 - 12:00", "room": "LH-201"},
-            {"id": "C7", "faculty_name": "Prof. Sneha Deshmukh", "department": "IT", "course_code": "IT302", "course_name": "Cloud Computing", "section": "IT-A", "day": "Thursday", "time_slot": "10:00 - 11:00", "room": "LH-201"},
-            {"id": "C8", "faculty_name": "Dr. Vikram Gupta", "department": "AI-DS", "course_code": "AI301", "course_name": "Machine Learning", "section": "AI-A", "day": "Thursday", "time_slot": "02:00 - 03:00", "room": "LH-301"}
-        ]
+        "title": "Scenario B: Clashes",
+        "description": "A faculty double-booking, a room double-booking, a section clash "
+                       "and a lab placed in a lecture hall.",
+        "schedule": COLLISION,
     },
-
     "overload": {
-        "title": "Scenario C: Excessive Overload & Fatigue Clashes",
-        "description": "Simulates disproportionate allocation: Junior faculty Dr. Amit Verma assigned 20+ hours, plus 4 back-to-back continuous lectures without rest on Tuesday.",
-        "schedule": [
-            # 4 consecutive hours on Tuesday for Dr. Priya Nair (Fatigue Warning)
-            {"id": "O1", "faculty_name": "Dr. Priya Nair", "department": "CSE", "course_code": "CS304", "course_name": "Algorithms", "section": "CSE-A", "day": "Tuesday", "time_slot": "09:00 - 10:00", "room": "LH-103"},
-            {"id": "O2", "faculty_name": "Dr. Priya Nair", "department": "CSE", "course_code": "CS304", "course_name": "Algorithms", "section": "CSE-B", "day": "Tuesday", "time_slot": "10:00 - 11:00", "room": "LH-103"},
-            {"id": "O3", "faculty_name": "Dr. Priya Nair", "department": "CSE", "course_code": "CS305", "course_name": "Data Structures Lab", "section": "CSE-A", "day": "Tuesday", "time_slot": "11:00 - 12:00", "room": "Lab-1"},
-            {"id": "O4", "faculty_name": "Dr. Priya Nair", "department": "CSE", "course_code": "CS305", "course_name": "Data Structures Lab", "section": "CSE-A", "day": "Tuesday", "time_slot": "12:00 - 01:00", "room": "Lab-1"},
-
-            # Overload for Dr. Amit Verma (Total: 7 sessions scheduled here, exceeding standard proportion)
-            {"id": "O5", "faculty_name": "Dr. Amit Verma", "department": "CSE", "course_code": "CS303", "course_name": "Networks", "section": "CSE-A", "day": "Monday", "time_slot": "09:00 - 10:00", "room": "LH-101"},
-            {"id": "O6", "faculty_name": "Dr. Amit Verma", "department": "CSE", "course_code": "CS303", "course_name": "Networks", "section": "CSE-B", "day": "Monday", "time_slot": "11:00 - 12:00", "room": "LH-101"},
-            {"id": "O7", "faculty_name": "Dr. Amit Verma", "department": "CSE", "course_code": "CS303", "course_name": "Networks", "section": "CSE-A", "day": "Wednesday", "time_slot": "09:00 - 10:00", "room": "LH-101"},
-            {"id": "O8", "faculty_name": "Dr. Amit Verma", "department": "CSE", "course_code": "CS303", "course_name": "Networks", "section": "CSE-B", "day": "Wednesday", "time_slot": "02:00 - 03:00", "room": "LH-101"},
-            {"id": "O9", "faculty_name": "Dr. Amit Verma", "department": "CSE", "course_code": "CS306", "course_name": "Network Lab", "section": "CSE-A", "day": "Thursday", "time_slot": "09:00 - 10:00", "room": "Lab-2"},
-            {"id": "O10", "faculty_name": "Dr. Amit Verma", "department": "CSE", "course_code": "CS306", "course_name": "Network Lab", "section": "CSE-A", "day": "Thursday", "time_slot": "10:00 - 11:00", "room": "Lab-2"},
-            {"id": "O11", "faculty_name": "Dr. Amit Verma", "department": "CSE", "course_code": "CS306", "course_name": "Network Lab", "section": "CSE-B", "day": "Friday", "time_slot": "02:00 - 03:00", "room": "Lab-2"},
-            {"id": "O12", "faculty_name": "Dr. Amit Verma", "department": "CSE", "course_code": "CS306", "course_name": "Network Lab", "section": "CSE-B", "day": "Friday", "time_slot": "03:00 - 04:00", "room": "Lab-2"},
-
-            # Normal single classes
-            {"id": "O13", "faculty_name": "Dr. Rajesh Sharma", "department": "CSE", "course_code": "CS301", "course_name": "Operating Systems", "section": "CSE-A", "day": "Monday", "time_slot": "02:00 - 03:00", "room": "LH-101"},
-            {"id": "O14", "faculty_name": "Prof. Sneha Deshmukh", "department": "IT", "course_code": "IT302", "course_name": "Cloud Computing", "section": "IT-A", "day": "Wednesday", "time_slot": "10:00 - 11:00", "room": "LH-201"}
-        ]
-    }
+        "title": "Scenario C: Overload & fatigue",
+        "description": "Dr. Amit Verma has 19 hrs/week (cap 18) and Dr. Priya Nair has "
+                       "4 back-to-back classes on Tuesday.",
+        "schedule": OVERLOAD,
+    },
 }

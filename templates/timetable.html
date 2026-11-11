@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}Timetable{% endblock %}
+{% block content %}
+
+<div class="card">
+  <div class="card-header-flex">
+    <div>
+      <h3>Weekly timetable</h3>
+      <p class="card-desc">Showing {{ rows|length }} of {{ total }} classes. Red rows have a hard clash, amber rows have a warning.
+        See the <a href="{{ url_for('home') }}">Dashboard</a> for details and fixes.</p>
+    </div>
+    <div class="btn-row">
+      <a class="btn btn-secondary-sm" href="{{ url_for('download_timetable') }}">⬇ CSV</a>
+      <a class="btn btn-secondary-sm" href="{{ url_for('download_report') }}">⬇ Excel report</a>
+    </div>
+  </div>
+
+  <form method="get" class="filter-row">
+    <select name="day" aria-label="Filter by day">
+      <option value="">All days</option>
+      {% for d in settings.working_days %}<option {{ 'selected' if filters.day == d }}>{{ d }}</option>{% endfor %}
+    </select>
+    <select name="faculty" aria-label="Filter by faculty">
+      <option value="">All faculty</option>
+      {% for f in faculty %}<option {{ 'selected' if filters.faculty == f.name }}>{{ f.name }}</option>{% endfor %}
+    </select>
+    <select name="section" aria-label="Filter by section">
+      <option value="">All sections</option>
+      {% for s in sections %}<option {{ 'selected' if filters.section == s.name }}>{{ s.name }}</option>{% endfor %}
+    </select>
+    <select name="room" aria-label="Filter by room">
+      <option value="">All rooms</option>
+      {% for r in rooms %}<option {{ 'selected' if filters.room == r.name }}>{{ r.name }}</option>{% endfor %}
+    </select>
+    <button class="btn btn-secondary-sm" type="submit">Filter</button>
+    <a href="{{ url_for('timetable_page') }}" class="link-sm">Clear</a>
+  </form>
+
+  <div class="table-responsive">
+    <table class="data-table">
+      <thead>
+        <tr><th>Day</th><th>Time</th><th>Subject</th><th>Section</th><th>Faculty</th><th>Room</th><th>Status</th>{% if is_admin %}<th></th>{% endif %}</tr>
+      </thead>
+      <tbody>
+        {% for e in rows %}
+        {% set st = row_status.get(e.id) %}
+        <tr class="{{ 'clash-row' if st == 'CRITICAL' else ('warn-row' if st == 'WARNING') }}">
+          <td><strong>{{ e.day }}</strong></td>
+          <td><code>{{ e.time_slot }}</code></td>
+          <td><strong>{{ e.course_code }}</strong> <span class="muted">{{ e.course_name }}</span></td>
+          <td>{{ e.section }}</td>
+          <td>{{ e.faculty_name }}</td>
+          <td><code>{{ e.room }}</code></td>
+          <td>
+            {% if st == 'CRITICAL' %}<span class="tag-badge red">Clash</span>
+            {% elif st == 'WARNING' %}<span class="tag-badge amber">Warning</span>
+            {% else %}<span class="tag-badge green">OK</span>{% endif %}
+          </td>
+          {% if is_admin %}
+          <td class="actions">
+            <a class="link-sm" href="{{ url_for('timetable_edit', entry_id=e.id) }}">Edit</a>
+            <form method="post" action="{{ url_for('timetable_delete', entry_id=e.id) }}" data-confirm="Delete this class?">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="link-btn danger" type="submit">Delete</button>
+            </form>
+          </td>
+          {% endif %}
+        </tr>
+        {% else %}
+        <tr><td colspan="8" class="muted">No classes yet.{% if is_admin %} Add one below or import a file.{% endif %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if is_admin %}
+<div class="grid-2col">
+  <div class="card">
+    <h3>Add a class</h3>
+    <p class="card-desc">You will be told immediately if it causes a clash.</p>
+    <form method="post" action="{{ url_for('timetable_add') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {% set entry = None %}
+      {% include "_class_form.html" %}
+      <button class="btn btn-primary" type="submit">Add class</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h3>Import from Excel / CSV</h3>
+    <p class="card-desc">Columns needed: <code>faculty_name, course_code, section, day, time_slot, room</code>
+      (optional: <code>department, course_name</code>).
+      <a href="{{ url_for('download_template', kind='timetable') }}">Download a sample file</a>.</p>
+    <form method="post" action="{{ url_for('timetable_import') }}" enctype="multipart/form-data" class="stack-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="file" name="file" accept=".csv,.xlsx,.xls" required>
+      <label class="radio"><input type="radio" name="mode" value="append" checked> Add to the current timetable</label>
+      <label class="radio"><input type="radio" name="mode" value="replace"> Replace the whole timetable</label>
+      <button class="btn btn-primary" type="submit">Import</button>
+    </form>
+    <hr>
+    <form method="post" action="{{ url_for('timetable_clear') }}" data-confirm="Remove ALL classes from the timetable? Download a backup first if unsure.">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="btn btn-danger-outline" type="submit">Clear entire timetable</button>
+    </form>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

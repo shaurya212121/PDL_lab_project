@@ -1,0 +1,66 @@
+{# Shared fields for "add class" and "edit class". `entry` is empty when adding. #}
+<div class="form-row-3">
+  <div class="form-group">
+    <label for="f_faculty">Faculty</label>
+    <select id="f_faculty" name="faculty_name" required>
+      <option value="">-- choose --</option>
+      {% for f in faculty %}
+        <option value="{{ f.name }}" {{ 'selected' if entry and entry.faculty_name == f.name }}>{{ f.name }} ({{ f.department }})</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="form-group">
+    <label for="f_subject">Subject</label>
+    <select id="f_subject" name="course_code" required>
+      <option value="">-- choose --</option>
+      {% for s in subjects %}
+        <option value="{{ s.code }}" {{ 'selected' if entry and entry.course_code == s.code }}>{{ s.code }} - {{ s.name }}{{ ' (Lab)' if s.is_lab }}</option>
+      {% endfor %}
+      {% if entry and entry.course_code not in subjects|map(attribute='code')|list %}
+        <option value="{{ entry.course_code }}" selected>{{ entry.course_code }} - {{ entry.course_name }} (not in subject list)</option>
+      {% endif %}
+    </select>
+  </div>
+  <div class="form-group">
+    <label for="f_section">Section</label>
+    <select id="f_section" name="section" required>
+      <option value="">-- choose --</option>
+      {% for s in sections %}
+        <option value="{{ s.name }}" {{ 'selected' if entry and entry.section == s.name }}>{{ s.name }} ({{ s.strength }} students)</option>
+      {% endfor %}
+      {% if entry and entry.section not in sections|map(attribute='name')|list %}
+        <option value="{{ entry.section }}" selected>{{ entry.section }} (not in section list)</option>
+      {% endif %}
+    </select>
+  </div>
+</div>
+<div class="form-row-3">
+  <div class="form-group">
+    <label for="f_day">Day</label>
+    <select id="f_day" name="day" required>
+      {% for d in settings.working_days %}
+        <option value="{{ d }}" {{ 'selected' if entry and entry.day == d }}>{{ d }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="form-group">
+    <label for="f_slot">Time slot</label>
+    <select id="f_slot" name="time_slot" required>
+      {% for s in settings.time_slots %}
+        <option value="{{ s }}" {{ 'selected' if entry and entry.time_slot == s }}>{{ s }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="form-group">
+    <label for="f_room">Room</label>
+    <select id="f_room" name="room" required>
+      <option value="">-- choose --</option>
+      {% for r in rooms %}
+        <option value="{{ r.name }}" {{ 'selected' if entry and entry.room == r.name }}>{{ r.name }} ({{ r.room_type }}, {{ r.capacity }} seats)</option>
+      {% endfor %}
+      {% if entry and entry.room not in rooms|map(attribute='name')|list %}
+        <option value="{{ entry.room }}" selected>{{ entry.room }} (not in room list)</option>
+      {% endif %}
+    </select>
+  </div>
+</div>

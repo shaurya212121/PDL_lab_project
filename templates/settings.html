@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+
+<div class="card">
+  <h3>College rules</h3>
+  <p class="card-desc">The conflict detector uses these rules. Changes apply immediately.</p>
+  <form method="post" class="stack-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-group">
+      <label for="college_name">College name (shown on printouts)</label>
+      <input id="college_name" name="college_name" value="{{ settings.college_name }}">
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label for="time_slots">Time slots, in order (one per line)</label>
+        <textarea id="time_slots" name="time_slots" rows="8">{{ settings.time_slots|join('\n') }}</textarea>
+        <p class="hint">Changing the text of a slot does not change classes already saved with the old text.
+          Those will show as "Invalid Time Slot" on the dashboard until you edit them.</p>
+      </div>
+      <div>
+        <div class="form-group">
+          <span class="label">Working days</span>
+          <div class="checkbox-grid">
+            {% for d in all_days %}
+            <label class="checkbox"><input type="checkbox" name="working_days" value="{{ d }}" {{ 'checked' if d in settings.working_days }}> {{ d }}</label>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="lunch_after">Lunch break comes after</label>
+          <select id="lunch_after" name="lunch_after">
+            <option value="">No lunch break</option>
+            {% for s in settings.time_slots %}<option {{ 'selected' if s == settings.lunch_after }}>{{ s }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <h4>Limits</h4>
+    <div class="form-row-3">
+      <div class="form-group"><label for="cap_professor">Weekly cap: Professor</label><input id="cap_professor" name="cap_professor" type="number" min="1" value="{{ settings.caps['Professor'] }}"></div>
+      <div class="form-group"><label for="cap_associate">Weekly cap: Associate Professor</label><input id="cap_associate" name="cap_associate" type="number" min="1" value="{{ settings.caps['Associate Professor'] }}"></div>
+      <div class="form-group"><label for="cap_assistant">Weekly cap: Assistant Professor</label><input id="cap_assistant" name="cap_assistant" type="number" min="1" value="{{ settings.caps['Assistant Professor'] }}"></div>
+    </div>
+    <div class="form-row-3">
+      <div class="form-group"><label for="max_daily_hours">Max classes per day</label><input id="max_daily_hours" name="max_daily_hours" type="number" min="1" value="{{ settings.max_daily_hours }}"></div>
+      <div class="form-group"><label for="max_consecutive_hours">Max back-to-back classes</label><input id="max_consecutive_hours" name="max_consecutive_hours" type="number" min="1" value="{{ settings.max_consecutive_hours }}"></div>
+      <div class="form-group"><label for="underload_percent">Underloaded below (% of cap)</label><input id="underload_percent" name="underload_percent" type="number" min="1" max="100" value="{{ settings.underload_percent }}"></div>
+    </div>
+    <label class="checkbox"><input type="checkbox" name="update_faculty_caps" value="1"> Also reset every faculty member's weekly limit to these designation caps</label>
+    <div><button class="btn btn-primary" type="submit">Save settings</button></div>
+  </form>
+</div>
+
+<div class="grid-2col">
+  <div class="card">
+    <h3>Backup</h3>
+    <p class="card-desc">Everything (timetable, faculty, rooms, leave, settings) is stored in one file:
+      <code>data/clashaudit.db</code>. Download a copy regularly and keep it safe.
+      To restore, stop the app and put the backup file back at <code>data/clashaudit.db</code>.</p>
+    <div class="btn-row spaced"><a class="btn btn-secondary" href="{{ url_for('download_backup') }}">⬇ Download backup</a></div>
+  </div>
+
+  <div class="card">
+    <h3>Demo timetables</h3>
+    <p class="card-desc">For presentations and testing. <strong>Loading one replaces the current timetable.</strong>
+      Download a backup first if you have real data.</p>
+    {% for key, s in scenarios.items() %}
+    <form method="post" action="{{ url_for('load_demo', key=key) }}" class="demo-row" data-confirm="Replace the current timetable with '{{ s.title }}'?">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div><strong>{{ s.title }}</strong><br><span class="muted">{{ s.description }}</span></div>
+      <button class="btn btn-secondary-sm" type="submit">Load</button>
+    </form>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

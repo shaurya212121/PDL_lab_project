@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Edit class{% endblock %}
+{% block content %}
+<div class="card">
+  <h3>Edit class: {{ entry.course_code }} ({{ entry.section }}) &bull; {{ entry.day }} {{ entry.time_slot }}</h3>
+  <p class="card-desc">Currently taught by {{ entry.faculty_name }} in {{ entry.room }}.</p>
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% include "_class_form.html" %}
+    <div class="btn-row">
+      <button class="btn btn-primary" type="submit">Save changes</button>
+      <a class="btn btn-secondary" href="{{ url_for('timetable_page') }}">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

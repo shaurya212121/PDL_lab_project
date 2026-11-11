@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Edit {{ name }}{% endblock %}
+{% block content %}
+<datalist id="deptList">{% for d in departments %}<option value="{{ d }}">{% endfor %}</datalist>
+<div class="card">
+  <h3>Edit {{ name }}</h3>
+  <form method="post" class="stack-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-row-3">
+      <div class="form-group"><label for="department">Department</label><input id="department" name="department" list="deptList" value="{{ person.department }}" required></div>
+      <div class="form-group">
+        <label for="designation">Designation</label>
+        <select id="designation" name="designation">
+          {% for d in designations %}<option {{ 'selected' if d == person.designation }}>{{ d }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="max_hours">Weekly limit (empty = designation limit)</label>
+        <input id="max_hours" name="max_hours" type="number" min="1" max="40"
+               value="{{ person.max_hours if person.max_hours != settings.caps.get(person.designation) }}">
+      </div>
+    </div>
+
+    <h4>Subjects {{ name }} can teach</h4>
+    <div class="checkbox-grid">
+      {% for s in subjects %}
+        <label class="checkbox"><input type="checkbox" name="subjects" value="{{ s.code }}" {{ 'checked' if s.code in chosen }}>
+          {{ s.code }} - {{ s.name }} <span class="muted">({{ s.department }})</span></label>
+      {% else %}
+        <p class="muted">No subjects yet. Add them on the <a href="{{ url_for('masters_page') }}">Rooms, Sections & Subjects</a> page.</p>
+      {% endfor %}
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" type="submit">Save</button>
+      <a class="btn btn-secondary" href="{{ url_for('faculty_page') }}">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

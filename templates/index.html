@@ -1,467 +1,164 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ClashAudit | Faculty Workload Distribution & Conflict Detector</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-</head>
-<body>
-  <!-- Header -->
-  <header class="navbar">
-    <div class="nav-container">
-      <div class="brand">
-        <div class="brand-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-            <line x1="16" y1="2" x2="16" y2="6"></line>
-            <line x1="8" y1="2" x2="8" y2="6"></line>
-            <line x1="3" y1="10" x2="21" y2="10"></line>
-            <path d="M8 14h.01"></path>
-            <path d="M12 14h.01"></path>
-            <path d="M16 14h.01"></path>
-            <path d="M8 18h.01"></path>
-            <path d="M12 18h.01"></path>
-          </svg>
-        </div>
-        <div class="brand-text">
-          <h1>Clash<span class="highlight">Audit</span></h1>
-          <p class="subtitle">Faculty Workload Distribution & Conflict Detector &bull; PDL Lab Mini Project</p>
-        </div>
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+
+<div class="stats-grid">
+  <div class="stat-card">
+    <span class="stat-icon icon-blue">📋</span>
+    <div><span class="stat-val" id="statTotalSlots">-</span><span class="stat-lbl">Classes per week</span></div>
+  </div>
+  <div class="stat-card">
+    <span class="stat-icon icon-red">⚠️</span>
+    <div><span class="stat-val text-danger" id="statCriticalConflicts">-</span><span class="stat-lbl">Hard clashes</span></div>
+  </div>
+  <div class="stat-card">
+    <span class="stat-icon icon-amber">⚡</span>
+    <div><span class="stat-val text-warning" id="statWarningConflicts">-</span><span class="stat-lbl">Warnings</span></div>
+  </div>
+  <div class="stat-card">
+    <span class="stat-icon icon-green">⚖️</span>
+    <div><span class="stat-val text-success" id="statBalanceScore">-</span><span class="stat-lbl">Workload Balance Index</span></div>
+  </div>
+</div>
+
+<div class="tab-nav">
+  <button class="tab-btn active" data-tab="tabConflicts">🔍 Conflicts & Fixes</button>
+  <button class="tab-btn" data-tab="tabWorkload">📊 Faculty Workload</button>
+  <button class="tab-btn" data-tab="tabStressPredictor">🧠 Burnout Risk Predictor</button>
+  <button class="tab-btn" data-tab="tabBenchmarks">📈 ML Model & Rules</button>
+</div>
+
+<!-- TAB 1: Conflicts -->
+<div id="tabConflicts" class="tab-content active">
+  <div class="card">
+    <div class="card-header-flex">
+      <div>
+        <h3>Problems found in the current timetable</h3>
+        <p class="card-desc">Hard clashes must be fixed. Warnings should be reviewed.
+          {% if is_admin %}Click <strong>Apply fix</strong> to accept a suggestion, or edit the class on the
+          <a href="{{ url_for('timetable_page') }}">Timetable</a> page.{% else %}Log in as admin to apply fixes.{% endif %}</p>
       </div>
-      <div class="nav-badge-group">
-        <span class="badge badge-primary">Model: Logistic Regression (96.25% Acc)</span>
-        <span class="badge badge-ai">AICTE/UGC Norms Engine</span>
-      </div>
+      <a class="btn btn-secondary-sm" href="{{ url_for('download_report') }}">⬇ Download report (Excel)</a>
     </div>
-  </header>
+    <div id="conflictsContainer" class="conflicts-container"><p class="muted">Loading…</p></div>
+  </div>
+</div>
 
-  <!-- Main Content -->
-  <main class="main-content">
-    <!-- Presets & Scenarios Banner -->
-    <section class="presets-section">
-      <div class="section-header">
-        <div>
-          <h2>One-Click Institutional Demo Scenarios</h2>
-          <p>Load real-world academic timetable states to inspect conflict detection and load balancing in real-time.</p>
-        </div>
-        <div class="preset-buttons">
-          <button type="button" class="preset-btn btn-balanced active" id="btnScenarioBalanced" onclick="switchScenario('balanced')">
-            <span class="dot green"></span> Scenario A: Optimal Timetable (Zero Clash)
-          </button>
-          <button type="button" class="preset-btn btn-collision" id="btnScenarioCollision" onclick="switchScenario('collision')">
-            <span class="dot red"></span> Scenario B: Critical Collisions (Faculty & Room Clash)
-          </button>
-          <button type="button" class="preset-btn btn-overload" id="btnScenarioOverload" onclick="switchScenario('overload')">
-            <span class="dot amber"></span> Scenario C: Overload & Fatigue Clashes
-          </button>
-        </div>
-      </div>
-    </section>
-
-    <!-- Executive Stats Ribbon -->
-    <div class="stats-grid">
-      <div class="stat-card">
-        <span class="stat-icon icon-blue">📋</span>
-        <div>
-          <span class="stat-val" id="statTotalSlots">16</span>
-          <span class="stat-lbl">Scheduled Sessions</span>
-        </div>
-      </div>
-      <div class="stat-card">
-        <span class="stat-icon icon-red">⚠️</span>
-        <div>
-          <span class="stat-val text-danger" id="statCriticalConflicts">0</span>
-          <span class="stat-lbl">Critical Hard Clashes</span>
-        </div>
-      </div>
-      <div class="stat-card">
-        <span class="stat-icon icon-amber">⚡</span>
-        <div>
-          <span class="stat-val text-warning" id="statWarningConflicts">0</span>
-          <span class="stat-lbl">Workload / Fatigue Warnings</span>
-        </div>
-      </div>
-      <div class="stat-card">
-        <span class="stat-icon icon-green">⚖️</span>
-        <div>
-          <span class="stat-val text-success" id="statBalanceScore">94.0%</span>
-          <span class="stat-lbl">Workload Balance Index</span>
-        </div>
-      </div>
+<!-- TAB 2: Workload -->
+<div id="tabWorkload" class="tab-content">
+  <div class="card">
+    <div class="card-header">
+      <h3>Faculty workload vs AICTE / UGC weekly limits</h3>
+      <p class="card-desc">Green: balanced &bull; Amber: underloaded (below {{ settings.underload_percent }}% of limit) &bull; Red: overloaded &bull; Grey: no classes.</p>
     </div>
+    <div id="workloadList" class="workload-list"></div>
+  </div>
+</div>
 
-    <!-- Navigation Tabs -->
-    <div class="tab-nav">
-      <button class="tab-btn active" onclick="openTab('tabConflicts')">🔍 Conflict Inspector & Schedule</button>
-      <button class="tab-btn" onclick="openTab('tabWorkload')">📊 Faculty Workload Distribution</button>
-      <button class="tab-btn" onclick="openTab('tabStressPredictor')">🧠 AI Workload Stress Predictor</button>
-      <button class="tab-btn" onclick="openTab('tabBenchmarks')">📈 Model Benchmarks & Rules</button>
+<!-- TAB 3: Burnout predictor -->
+<div id="tabStressPredictor" class="tab-content">
+  <div class="grid-2col">
+    <div class="card">
+      <div class="card-header">
+        <h3>Faculty burnout risk calculator</h3>
+        <p class="card-desc">Machine learning model ({{ model_meta.get('algorithm', 'Logistic Regression') }}, {{ model_meta.get('accuracy', '-') }}% test accuracy). Includes admin and research hours that are not in the timetable.</p>
+      </div>
+      <form id="stressForm">
+        <div class="form-group">
+          <label for="calcFaculty">Fill from a faculty member's timetable (optional)</label>
+          <select id="calcFaculty"><option value="">-- choose --</option></select>
+        </div>
+        <div class="form-group">
+          <label for="calcDesig">Designation</label>
+          <select id="calcDesig" required>
+            <option value="Assistant Professor" selected>Assistant Professor ({{ settings.caps['Assistant Professor'] }} hrs cap)</option>
+            <option value="Associate Professor">Associate Professor ({{ settings.caps['Associate Professor'] }} hrs cap)</option>
+            <option value="Professor">Professor / HOD ({{ settings.caps['Professor'] }} hrs cap)</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label for="calcTeaching">Lecture hours / week</label><input type="number" id="calcTeaching" min="0" max="40" value="14" required></div>
+          <div class="form-group"><label for="calcLab">Lab hours / week</label><input type="number" id="calcLab" min="0" max="30" value="6" required></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label for="calcAdmin">Admin & committee hours</label><input type="number" id="calcAdmin" min="0" max="20" value="2" required></div>
+          <div class="form-group"><label for="calcResearch">Research / guidance hours</label><input type="number" id="calcResearch" min="0" max="20" value="2" required></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label for="calcCourses">Different subjects taught</label><input type="number" id="calcCourses" min="1" max="8" value="3" required></div>
+          <div class="form-group"><label for="calcDays">Teaching days / week</label><input type="number" id="calcDays" min="1" max="6" value="5" required></div>
+        </div>
+        <div class="btn-group">
+          <button type="submit" class="btn btn-primary">🧠 Predict burnout risk</button>
+          <button type="button" class="btn btn-secondary" id="btnSampleOverload">Try an overloaded example</button>
+        </div>
+      </form>
     </div>
 
-    <!-- TAB 1: Conflict Inspector & Timetable -->
-    <div id="tabConflicts" class="tab-content active">
-      <!-- Auto-Resolve Banner (shown when conflicts exist) -->
-      <div id="resolveBanner" class="resolve-banner" style="display: none;">
-        <div class="resolve-info">
-          <h4>💡 Smart AI Reassignment Available</h4>
-          <p id="resolveText">An available, non-overloaded faculty member was identified in the same department to eliminate the collision.</p>
-        </div>
-        <button type="button" class="btn btn-resolve" onclick="applyResolution()">
-          ⚡ Auto-Resolve Conflict Now
-        </button>
+    <div class="card result-card">
+      <div class="card-header">
+        <h3>Prediction</h3>
+        <p class="card-desc">Probability of each class and suggested action.</p>
       </div>
-
-      <!-- Conflicts Alert Container -->
-      <div id="conflictsContainer" class="conflicts-container"></div>
-
-      <!-- Timetable Section -->
-      <div class="card timetable-card">
-        <div class="card-header-flex">
-          <div>
-            <h3>Active Timetable Allocations</h3>
-            <p class="card-desc">Current scheduled courses across academic departments.</p>
-          </div>
-          <button type="button" class="btn btn-secondary-sm" onclick="toggleAddModal()">+ Add Test Class</button>
+      <div class="stress-result-body">
+        <div class="stress-badge badge-neutral" id="stressBadge">Waiting for input</div>
+        <div class="stress-hours-info" id="stressHoursInfo"></div>
+        <div class="prob-bars-container">
+          <div class="prob-row"><span class="prob-lbl">Underloaded</span><div class="prob-track"><div class="prob-fill fill-amber" id="probUnderload"></div></div><span class="prob-val" id="probUnderloadVal">0%</span></div>
+          <div class="prob-row"><span class="prob-lbl">Balanced</span><div class="prob-track"><div class="prob-fill fill-green" id="probBalanced"></div></div><span class="prob-val" id="probBalancedVal">0%</span></div>
+          <div class="prob-row"><span class="prob-lbl">Overloaded</span><div class="prob-track"><div class="prob-fill fill-red" id="probOverload"></div></div><span class="prob-val" id="probOverloadVal">0%</span></div>
         </div>
-
-        <div class="table-responsive">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Day</th>
-                <th>Time Slot</th>
-                <th>Course & Section</th>
-                <th>Department</th>
-                <th>Assigned Faculty</th>
-                <th>Room</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody id="scheduleTableBody">
-              <!-- Rendered via JS -->
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- Dynamic Class Addition Modal / Form -->
-      <div id="addClassModal" class="inline-form-card" style="display: none;">
-        <h4>➕ Add New Lecture / Lab Session</h4>
-        <p class="card-desc">Simulate scheduling a new session to test instantaneous conflict detection.</p>
-        <form id="addClassForm" onsubmit="handleAddClass(event)">
-          <div class="form-row-4">
-            <div class="form-group">
-              <label>Faculty</label>
-              <select id="newFaculty" required>
-                <option value="Dr. Rajesh Sharma">Dr. Rajesh Sharma (Prof, CSE)</option>
-                <option value="Prof. Ananya Iyer">Prof. Ananya Iyer (Assoc Prof, CSE)</option>
-                <option value="Dr. Amit Verma">Dr. Amit Verma (Asst Prof, CSE)</option>
-                <option value="Dr. Priya Nair">Dr. Priya Nair (Asst Prof, CSE)</option>
-                <option value="Dr. Suresh Patel">Dr. Suresh Patel (Assoc Prof, IT)</option>
-                <option value="Prof. Sneha Deshmukh">Prof. Sneha Deshmukh (Asst Prof, IT)</option>
-                <option value="Dr. Vikram Gupta">Dr. Vikram Gupta (Prof, AI-DS)</option>
-                <option value="Dr. Pooja Menon">Dr. Pooja Menon (Asst Prof, AI-DS)</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Course Code & Section</label>
-              <input type="text" id="newCourse" value="CS305 (CSE-C)" required />
-            </div>
-            <div class="form-group">
-              <label>Day</label>
-              <select id="newDay" required>
-                <option value="Monday">Monday</option>
-                <option value="Tuesday">Tuesday</option>
-                <option value="Wednesday">Wednesday</option>
-                <option value="Thursday">Thursday</option>
-                <option value="Friday">Friday</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Time Slot</label>
-              <select id="newTimeSlot" required>
-                <option value="09:00 - 10:00">09:00 - 10:00</option>
-                <option value="10:00 - 11:00">10:00 - 11:00</option>
-                <option value="11:00 - 12:00">11:00 - 12:00</option>
-                <option value="12:00 - 01:00">12:00 - 01:00</option>
-                <option value="02:00 - 03:00">02:00 - 03:00</option>
-                <option value="03:00 - 04:00">03:00 - 04:00</option>
-              </select>
-            </div>
-          </div>
-          <div class="form-row-2">
-            <div class="form-group">
-              <label>Room / Lecture Hall</label>
-              <input type="text" id="newRoom" value="LH-101" required />
-            </div>
-            <div class="form-group btn-align">
-              <button type="submit" class="btn btn-primary">Schedule Session</button>
-              <button type="button" class="btn btn-secondary" onclick="toggleAddModal()">Cancel</button>
-            </div>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- TAB 2: Workload Distribution -->
-    <div id="tabWorkload" class="tab-content">
-      <div class="card">
-        <div class="card-header">
-          <div>
-            <h3>Faculty Workload Distribution vs AICTE Limits</h3>
-            <p class="card-desc">Tracks teaching and lab allocations against maximum statutory weekly quotas.</p>
-          </div>
-        </div>
-
-        <div id="workloadList" class="workload-list">
-          <!-- Rendered via JS -->
+        <div class="recommendation-box">
+          <h4>Suggested action</h4>
+          <p id="stressRecommendation">Fill in the form and click Predict.</p>
         </div>
       </div>
     </div>
+  </div>
+</div>
 
-    <!-- TAB 3: AI Workload Stress Predictor -->
-    <div id="tabStressPredictor" class="tab-content">
-      <div class="grid-2col">
-        <!-- Input Form -->
-        <div class="card">
-          <div class="card-header">
-            <div>
-              <h3>Faculty Stress & Burnout Risk Calculator</h3>
-              <p class="card-desc">Supervised ML classifier (96.25% test accuracy) predicting individual burnout risk.</p>
-            </div>
-          </div>
-
-          <form id="stressForm" onsubmit="handleStressPrediction(event)">
-            <div class="form-group">
-              <label>Faculty Designation</label>
-              <select id="calcDesig" required>
-                <option value="Assistant Professor" selected>Assistant Professor (AICTE Cap: 18 hrs)</option>
-                <option value="Associate Professor">Associate Professor (AICTE Cap: 16 hrs)</option>
-                <option value="Professor">Professor / HOD (AICTE Cap: 14 hrs)</option>
-              </select>
-            </div>
-
-            <div class="form-row">
-              <div class="form-group">
-                <label>Weekly Lecture Hours</label>
-                <input type="number" id="calcTeaching" min="0" max="30" value="14" required />
-              </div>
-              <div class="form-group">
-                <label>Weekly Lab / Practical Hours</label>
-                <input type="number" id="calcLab" min="0" max="20" value="6" required />
-              </div>
-            </div>
-
-            <div class="form-row">
-              <div class="form-group">
-                <label>Admin & Committee Hours</label>
-                <input type="number" id="calcAdmin" min="0" max="15" value="2" required />
-              </div>
-              <div class="form-group">
-                <label>Research / Guidance Hours</label>
-                <input type="number" id="calcResearch" min="0" max="15" value="2" required />
-              </div>
-            </div>
-
-            <div class="form-row">
-              <div class="form-group">
-                <label>Distinct Subjects Handled</label>
-                <input type="number" id="calcCourses" min="1" max="6" value="3" required />
-              </div>
-              <div class="form-group">
-                <label>Teaching Days / Week</label>
-                <input type="number" id="calcDays" min="1" max="6" value="5" required />
-              </div>
-            </div>
-
-            <div class="btn-group">
-              <button type="submit" class="btn btn-primary" id="btnPredictStress">
-                🧠 Predict Burnout Risk
-              </button>
-              <button type="button" class="btn btn-secondary" onclick="loadSampleFaculty('overloaded')">
-                Load Overloaded Case
-              </button>
-            </div>
-          </form>
-        </div>
-
-        <!-- Prediction Result Display -->
-        <div class="card result-card">
-          <div class="card-header">
-            <div>
-              <h3>AI Diagnostic Evaluation</h3>
-              <p class="card-desc">Multinomial classification probabilities & institutional recommendations.</p>
-            </div>
-          </div>
-
-          <div class="stress-result-body">
-            <div class="stress-badge badge-neutral" id="stressBadge">Awaiting Evaluation</div>
-            <div class="stress-hours-info" id="stressHoursInfo">
-              Total Workload: <strong>-- hrs/week</strong> | Max Permissible: <strong>-- hrs</strong>
-            </div>
-
-            <div class="prob-bars-container">
-              <div class="prob-row">
-                <span class="prob-lbl">Underloaded (<12 hrs)</span>
-                <div class="prob-track"><div class="prob-fill fill-amber" id="probUnderload" style="width: 0%;"></div></div>
-                <span class="prob-val" id="probUnderloadVal">0%</span>
-              </div>
-              <div class="prob-row">
-                <span class="prob-lbl">Balanced / Optimal</span>
-                <div class="prob-track"><div class="prob-fill fill-green" id="probBalanced" style="width: 0%;"></div></div>
-                <span class="prob-val" id="probBalancedVal">0%</span>
-              </div>
-              <div class="prob-row">
-                <span class="prob-lbl">Overloaded (Burnout Risk)</span>
-                <div class="prob-track"><div class="prob-fill fill-red" id="probOverload" style="width: 0%;"></div></div>
-                <span class="prob-val" id="probOverloadVal">0%</span>
-              </div>
-            </div>
-
-            <div class="recommendation-box">
-              <h4>Institutional Action Guidance:</h4>
-              <p id="stressRecommendation">Configure parameters and run the prediction model to display tailored workload restructuring advice.</p>
-            </div>
-          </div>
-        </div>
-      </div>
+<!-- TAB 4: Model & rules -->
+<div id="tabBenchmarks" class="tab-content">
+  <div class="card benchmark-card">
+    <div class="card-header">
+      <h3>Machine learning model comparison</h3>
+      <p class="card-desc">Four algorithms trained on {{ model_meta.get('dataset_summary', {}).get('total_faculty', 400) }} faculty records (80/20 split + 5-fold cross-validation). Numbers are read from <code>model/model_metadata.json</code>, which <code>model/train.py</code> creates.</p>
+    </div>
+    <div class="table-responsive">
+      <table class="benchmark-table">
+        <thead><tr><th>Model</th><th>Test accuracy</th><th>Precision</th><th>Recall</th><th>F1-score</th><th>5-fold CV mean</th></tr></thead>
+        <tbody>
+          {% for name, m in model_meta.get('benchmarks', {}).items()|sort(attribute='1.accuracy', reverse=True) %}
+          <tr class="{{ 'highlight-row' if name == 'Logistic Regression' }}">
+            <td><strong>{{ name }}</strong>{% if name == 'Logistic Regression' %} (used){% endif %}</td>
+            <td>{{ m.accuracy }}%</td><td>{{ m.precision }}%</td><td>{{ m.recall }}%</td><td>{{ m.f1_score }}%</td><td>{{ m.cv_mean }}% ± {{ m.cv_std }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6">Model information not found. Run <code>python model/train.py</code>.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
 
-    <!-- TAB 4: Model Benchmarks & Rules -->
-    <div id="tabBenchmarks" class="tab-content">
-      <div class="card benchmark-card">
-        <div class="card-header">
-          <div>
-            <h3>Machine Learning Model Evaluation & Cross-Validation</h3>
-            <p class="card-desc">Comparative performance across 4 algorithms on the 400-faculty workload dataset.</p>
-          </div>
-        </div>
-
-        <div class="metrics-grid">
-          <div class="metric-box">
-            <span class="metric-val text-primary">96.25%</span>
-            <span class="metric-name">Test Accuracy</span>
-            <span class="metric-sub">Logistic Regression</span>
-          </div>
-          <div class="metric-box">
-            <span class="metric-val text-success">96.24%</span>
-            <span class="metric-name">Weighted F1-Score</span>
-            <span class="metric-sub">Harmonic Precision/Recall</span>
-          </div>
-          <div class="metric-box">
-            <span class="metric-val text-accent">95.50%</span>
-            <span class="metric-name">5-Fold Stratified CV</span>
-            <span class="metric-sub">Generalization Stability</span>
-          </div>
-          <div class="metric-box">
-            <span class="metric-val text-warning">400</span>
-            <span class="metric-name">Faculty Dataset</span>
-            <span class="metric-sub">CSE, IT, AI-DS, ECE</span>
-          </div>
-        </div>
-
-        <div class="table-responsive">
-          <table class="benchmark-table">
-            <thead>
-              <tr>
-                <th>Model Architecture</th>
-                <th>Test Accuracy</th>
-                <th>Precision</th>
-                <th>Recall</th>
-                <th>F1-Score</th>
-                <th>5-Fold CV Mean</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr class="highlight-row">
-                <td><strong>Logistic Regression (Selected Production)</strong></td>
-                <td>96.25%</td>
-                <td>96.48%</td>
-                <td>96.25%</td>
-                <td>96.24%</td>
-                <td>95.50%</td>
-              </tr>
-              <tr>
-                <td>Random Forest Classifier (Ensemble)</td>
-                <td>91.25%</td>
-                <td>91.45%</td>
-                <td>91.25%</td>
-                <td>91.19%</td>
-                <td>92.25%</td>
-              </tr>
-              <tr>
-                <td>Decision Tree Classifier</td>
-                <td>93.75%</td>
-                <td>94.10%</td>
-                <td>93.75%</td>
-                <td>93.76%</td>
-                <td>90.00%</td>
-              </tr>
-              <tr>
-                <td>Gaussian Naive Bayes</td>
-                <td>48.75%</td>
-                <td>52.10%</td>
-                <td>48.75%</td>
-                <td>41.16%</td>
-                <td>53.50%</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <h3 style="margin-top: 1.5rem; margin-bottom: 0.5rem; font-size: 1rem;">Institutional AICTE / UGC Workload Norms Reference</h3>
-        <div class="table-responsive">
-          <table class="benchmark-table">
-            <thead>
-              <tr>
-                <th>Academic Designation</th>
-                <th>Direct Teaching (Lectures)</th>
-                <th>Lab / Tutorials</th>
-                <th>Admin & Research</th>
-                <th>Max Recommended Cap</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td><strong>Assistant Professor</strong></td>
-                <td>12 - 14 hrs</td>
-                <td>4 - 6 hrs</td>
-                <td>2 - 4 hrs</td>
-                <td><span class="tag-badge green">18 Hours / Week</span></td>
-              </tr>
-              <tr>
-                <td><strong>Associate Professor</strong></td>
-                <td>8 - 10 hrs</td>
-                <td>2 - 4 hrs</td>
-                <td>4 - 6 hrs</td>
-                <td><span class="tag-badge blue">16 Hours / Week</span></td>
-              </tr>
-              <tr>
-                <td><strong>Professor / HOD</strong></td>
-                <td>4 - 6 hrs</td>
-                <td>0 - 2 hrs</td>
-                <td>6 - 8 hrs</td>
-                <td><span class="tag-badge purple">14 Hours / Week</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
+    <h3 class="sub-heading">Rules used by the conflict detector (change them in Settings)</h3>
+    <div class="table-responsive">
+      <table class="benchmark-table">
+        <thead><tr><th>Rule</th><th>Current value</th></tr></thead>
+        <tbody>
+          <tr><td>Weekly cap: Professor / Associate / Assistant</td><td>{{ settings.caps['Professor'] }} / {{ settings.caps['Associate Professor'] }} / {{ settings.caps['Assistant Professor'] }} hrs</td></tr>
+          <tr><td>Maximum classes per day for one teacher</td><td>{{ settings.max_daily_hours }}</td></tr>
+          <tr><td>Maximum back-to-back classes</td><td>{{ settings.max_consecutive_hours }}</td></tr>
+          <tr><td>Lunch break after</td><td>{{ settings.lunch_after or 'No lunch break' }}</td></tr>
+          <tr><td>Underloaded below</td><td>{{ settings.underload_percent }}% of weekly cap</td></tr>
+          <tr><td>Working days</td><td>{{ settings.working_days|join(', ') }}</td></tr>
+        </tbody>
+      </table>
     </div>
-  </main>
+  </div>
+</div>
+{% endblock %}
 
-  <!-- Footer -->
-  <footer class="footer">
-    <div class="footer-container">
-      <p>&copy; 2026 <strong>ClashAudit</strong> &bull; Python Data Lab (PDL) Mini Project</p>
-      <p class="footer-sub">Engineered with Python, Scikit-Learn, Flask, HTML5, CSS3 & JavaScript</p>
-    </div>
-  </footer>
-
-  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
-</body>
-</html>
+{% block scripts %}
+<script>const IS_ADMIN = {{ 'true' if is_admin else 'false' }};</script>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+{% endblock %}

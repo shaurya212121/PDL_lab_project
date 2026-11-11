@@ -1,402 +1,232 @@
 /**
- * ClashAudit - Client Interactions & Controller
- * PDL Lab Mini Project
+ * ClashAudit - dashboard page script.
+ * Loads the analysis from the server (/api/report) and shows it.
  */
 
-// Embedded default scenarios for offline execution or quick load
-let activeSchedule = [];
-let activeScenarioKey = 'balanced';
-let currentSuggestions = [];
+let currentReport = null;
+let currentSchedule = [];
+const CSRF = document.querySelector('meta[name="csrf-token"]').content;
 
 document.addEventListener('DOMContentLoaded', () => {
-  switchScenario('balanced');
-  // Run sample prediction on the stress tab so it has initial state
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => openTab(btn.dataset.tab));
+  });
+  document.getElementById('stressForm').addEventListener('submit', handleStressPrediction);
+  document.getElementById('btnSampleOverload').addEventListener('click', loadOverloadExample);
+  document.getElementById('calcFaculty').addEventListener('change', fillFromFaculty);
+  loadReport();
   handleStressPrediction();
 });
 
-/**
- * Tab Navigation
- */
+/** Make text safe to put inside HTML (names typed by users could contain < or >). */
+function esc(value) {
+  return String(value ?? '').replace(/[&<>"']/g, ch => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]
+  ));
+}
+
 function openTab(tabId) {
-  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-
-  const targetTab = document.getElementById(tabId);
-  if (targetTab) targetTab.classList.add('active');
-
-  const activeBtn = Array.from(document.querySelectorAll('.tab-btn')).find(b => b.getAttribute('onclick').includes(tabId));
-  if (activeBtn) activeBtn.classList.add('active');
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.toggle('active', el.id === tabId));
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.toggle('active', el.dataset.tab === tabId));
 }
 
-/**
- * Switch Institutional Scenario
- */
-async function switchScenario(key) {
-  activeScenarioKey = key;
-
-  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
-  const btn = document.getElementById(`btnScenario${key.charAt(0).toUpperCase() + key.slice(1)}`);
-  if (btn) btn.classList.add('active');
-
+async function loadReport() {
   try {
-    const res = await fetch('/api/scenarios');
+    const res = await fetch('/api/report');
     const data = await res.json();
-    if (data[key]) {
-      activeSchedule = data[key].schedule;
-    }
+    currentSchedule = data.schedule;
+    renderReport(data.report);
   } catch (err) {
-    console.warn('[ClashAudit] Using local scenario fallback:', err);
-    activeSchedule = getFallbackScenario(key);
-  }
-
-  analyzeCurrentSchedule();
-}
-
-/**
- * Run Conflict Analysis on Active Schedule
- */
-async function analyzeCurrentSchedule() {
-  try {
-    const res = await fetch('/api/analyze', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ schedule: activeSchedule })
-    });
-
-    const report = await res.json();
-    renderAnalysisReport(report);
-  } catch (err) {
-    console.warn('[ClashAudit] Analysis API fallback:', err);
-    // Local fallback analysis
-    renderAnalysisReport(localAnalyze(activeSchedule));
+    document.getElementById('conflictsContainer').innerHTML =
+      '<div class="flash error">Could not reach the server. Is <code>python app.py</code> running?</div>';
   }
 }
 
-/**
- * Render Analysis Results in UI
- */
-function renderAnalysisReport(report) {
-  // 1. Update Executive Stats Ribbon
-  document.getElementById('statTotalSlots').innerText = activeSchedule.length;
+function renderReport(report) {
+  currentReport = report;
+  document.getElementById('statTotalSlots').innerText = currentSchedule.length;
   document.getElementById('statCriticalConflicts').innerText = report.critical_conflicts;
   document.getElementById('statWarningConflicts').innerText = report.warning_conflicts;
   document.getElementById('statBalanceScore').innerText = `${report.workload_balance_score}%`;
-
-  // 2. Render Suggestions / Auto-Resolve Banner
-  currentSuggestions = report.suggestions || [];
-  const resolveBanner = document.getElementById('resolveBanner');
-  if (currentSuggestions.length > 0) {
-    const s = currentSuggestions[0];
-    document.getElementById('resolveText').innerText = s.reason;
-    resolveBanner.style.display = 'flex';
-  } else {
-    resolveBanner.style.display = 'none';
-  }
-
-  // 3. Render Conflict Cards
-  const container = document.getElementById('conflictsContainer');
-  container.innerHTML = '';
-
-  const clashSlotMap = new Set();
-  const clashRoomMap = new Set();
-
-  if (report.conflicts_list && report.conflicts_list.length > 0) {
-    report.conflicts_list.forEach(c => {
-      const card = document.createElement('div');
-      card.className = `conflict-card ${c.severity}`;
-
-      const badgeColor = c.severity === 'CRITICAL' ? 'red' : 'amber';
-      card.innerHTML = `
-        <div class="conflict-left">
-          <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
-            <span class="tag-badge ${badgeColor}">${c.badge}</span>
-            <h4>${c.title}</h4>
-          </div>
-          <p class="conflict-desc">${c.description}</p>
-          <div class="conflict-meta">
-            <span>📅 Day: <strong>${c.day}</strong></span>
-            <span>⏰ Slot: <strong>${c.time_slot}</strong></span>
-          </div>
-        </div>
-      `;
-      container.appendChild(card);
-
-      if (c.type === 'FACULTY_TIME_CLASH') {
-        clashSlotMap.add(`${c.target_faculty}_${c.day}_${c.time_slot}`);
-      } else if (c.type === 'ROOM_DOUBLE_BOOKING') {
-        clashRoomMap.add(`${c.target_room}_${c.day}_${c.time_slot}`);
-      }
-    });
-  } else {
-    container.innerHTML = `
-      <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 1rem 1.25rem; display: flex; align-items: center; gap: 0.75rem; color: #166534;">
-        <span style="font-size: 1.25rem;">✅</span>
-        <div>
-          <strong>Schedule Fully Conflict-Free</strong>
-          <p style="font-size: 0.8rem; color: #15803d; margin: 0;">No overlapping faculty assignments or room collisions detected.</p>
-        </div>
-      </div>
-    `;
-  }
-
-  // 4. Render Timetable Table Rows
-  const tbody = document.getElementById('scheduleTableBody');
-  tbody.innerHTML = '';
-
-  activeSchedule.forEach(item => {
-    const isFacClash = clashSlotMap.has(`${item.faculty_name}_${item.day}_${item.time_slot}`);
-    const isRoomClash = clashRoomMap.has(`${item.room}_${item.day}_${item.time_slot}`);
-    const isClash = isFacClash || isRoomClash;
-
-    const tr = document.createElement('tr');
-    if (isClash) tr.className = 'clash-row';
-
-    tr.innerHTML = `
-      <td><strong>${item.day}</strong></td>
-      <td><code>${item.time_slot}</code></td>
-      <td><strong>${item.course_code}</strong> <span style="font-size: 0.75rem; color: #64748b;">(${item.section})</span></td>
-      <td><span class="tag-badge blue">${item.department}</span></td>
-      <td>${item.faculty_name}</td>
-      <td><code>${item.room}</code></td>
-      <td>
-        ${isClash ? '<span class="tag-badge red">Clash</span>' : '<span class="tag-badge green">Valid</span>'}
-      </td>
-    `;
-    tbody.appendChild(tr);
-  });
-
-  // 5. Render Workload Distribution List
-  const workloadList = document.getElementById('workloadList');
-  workloadList.innerHTML = '';
-
-  if (report.workload_distribution) {
-    report.workload_distribution.forEach(f => {
-      const item = document.createElement('div');
-      item.className = 'workload-item';
-
-      let barColor = 'green';
-      let statusBadge = '<span class="tag-badge green">Balanced</span>';
-
-      if (f.status === 'Overloaded') {
-        barColor = 'red';
-        statusBadge = '<span class="tag-badge red">Overloaded</span>';
-      } else if (f.status === 'Underloaded') {
-        barColor = 'amber';
-        statusBadge = '<span class="tag-badge amber">Underloaded</span>';
-      }
-
-      const percentClamped = Math.min(f.utilization_percentage, 100);
-
-      item.innerHTML = `
-        <div class="workload-info">
-          <h4>${f.faculty_name}</h4>
-          <p>${f.designation} &bull; Dept of ${f.department}</p>
-        </div>
-        <div class="bar-container">
-          <div class="bar-labels">
-            <span>Utilization: ${f.utilization_percentage}%</span>
-            <span>${f.assigned_hours} / ${f.max_hours} hrs</span>
-          </div>
-          <div class="bar-track">
-            <div class="bar-fill ${barColor}" style="width: ${percentClamped}%;"></div>
-          </div>
-        </div>
-        <div class="workload-status">
-          ${statusBadge}
-        </div>
-      `;
-      workloadList.appendChild(item);
-    });
-  }
+  renderConflicts(report);
+  renderWorkload(report.workload_distribution);
+  fillFacultyDropdown(report.workload_distribution);
 }
 
-/**
- * 1-Click Auto-Resolve Conflict Action
- */
-async function applyResolution() {
-  if (currentSuggestions.length === 0) return;
-  const topSuggestion = currentSuggestions[0];
+/** One card per problem, with its suggested fix underneath (if there is one). */
+function renderConflicts(report) {
+  const container = document.getElementById('conflictsContainer');
+  if (report.conflicts_list.length === 0) {
+    container.innerHTML = `
+      <div class="flash success">✅ <strong>No conflicts.</strong>
+        No double-bookings, section clashes, overloads or room problems found.</div>`;
+    return;
+  }
 
+  // Critical first, then warnings
+  const sorted = [...report.conflicts_list].sort((a, b) =>
+    (a.severity === 'CRITICAL' ? 0 : 1) - (b.severity === 'CRITICAL' ? 0 : 1));
+
+  container.innerHTML = sorted.map(c => {
+    const fixes = report.suggestions.filter(s => s.conflict_id === c.id);
+    const fixHtml = fixes.map(s => `
+      <div class="fix-box">
+        <span>💡 ${esc(s.reason)}</span>
+        ${IS_ADMIN ? `<button class="btn btn-resolve btn-sm" data-conflict="${esc(s.conflict_id)}"
+                       data-entry="${esc(s.entry_id)}">Apply fix</button>` : ''}
+      </div>`).join('');
+    const badgeColor = c.severity === 'CRITICAL' ? 'red' : 'amber';
+    return `
+      <div class="conflict-card ${c.severity}">
+        <div class="conflict-left">
+          <div class="conflict-title-row">
+            <span class="tag-badge ${badgeColor}">${esc(c.badge)}</span>
+            <h4>${esc(c.title)}</h4>
+          </div>
+          <p class="conflict-desc">${esc(c.description)}</p>
+          <div class="conflict-meta">
+            <span>📅 <strong>${esc(c.day)}</strong></span>
+            <span>⏰ <strong>${esc(c.time_slot)}</strong></span>
+          </div>
+          ${fixHtml}
+        </div>
+      </div>`;
+  }).join('');
+
+  container.querySelectorAll('button[data-conflict]').forEach(btn => {
+    btn.addEventListener('click', () => applyFix(btn.dataset.conflict, Number(btn.dataset.entry), btn));
+  });
+}
+
+async function applyFix(conflictId, entryId, button) {
+  button.disabled = true;
+  button.innerText = 'Applying…';
   try {
     const res = await fetch('/api/resolve', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        schedule: activeSchedule,
-        suggestion: topSuggestion
-      })
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': CSRF },
+      body: JSON.stringify({ conflict_id: conflictId, entry_id: entryId })
     });
-
     const data = await res.json();
-    if (data.status === 'resolved') {
-      activeSchedule = data.updated_schedule;
-      renderAnalysisReport(data.report);
-      alert(`Success! Reassigned to ${topSuggestion.recommended_faculty || topSuggestion.recommended_room}. Conflict eliminated!`);
+    if (!res.ok) {
+      alert(data.error || 'Could not apply the fix.');
+      loadReport();
+      return;
     }
+    currentSchedule = data.schedule;
+    renderReport(data.report);
   } catch (err) {
-    console.warn('[ClashAudit] Resolution fallback:', err);
-    // Local resolution fallback
-    const entry = activeSchedule.find(e => e.id === topSuggestion.entry_id);
-    if (entry) {
-      if (topSuggestion.action === 'REASSIGN_FACULTY') {
-        entry.faculty_name = topSuggestion.recommended_faculty;
-      } else if (topSuggestion.action === 'CHANGE_ROOM') {
-        entry.room = topSuggestion.recommended_room;
-      }
-    }
-    analyzeCurrentSchedule();
+    alert('Could not reach the server.');
+    button.disabled = false;
+    button.innerText = 'Apply fix';
   }
 }
 
-/**
- * Toggle Add Class Inline Form
- */
-function toggleAddModal() {
-  const formCard = document.getElementById('addClassModal');
-  formCard.style.display = formCard.style.display === 'none' ? 'block' : 'none';
+function renderWorkload(list) {
+  const colors = { Overloaded: 'red', Underloaded: 'amber', Balanced: 'green', Unassigned: 'grey' };
+  document.getElementById('workloadList').innerHTML = list.map(f => `
+    <div class="workload-item">
+      <div class="workload-info">
+        <h4><a href="/print/faculty/${encodeURIComponent(f.faculty_name)}">${esc(f.faculty_name)}</a></h4>
+        <p>${esc(f.designation)} &bull; ${esc(f.department)}</p>
+      </div>
+      <div class="bar-container">
+        <div class="bar-labels">
+          <span>${f.utilization_percentage}% of limit</span>
+          <span>${f.assigned_hours} / ${f.max_hours} hrs</span>
+        </div>
+        <div class="bar-track"><div class="bar-fill ${colors[f.status]}" style="width:${Math.min(f.utilization_percentage, 100)}%"></div></div>
+      </div>
+      <div class="workload-status"><span class="tag-badge ${colors[f.status]}">${esc(f.status)}</span></div>
+    </div>`).join('') || '<p class="muted">No faculty added yet.</p>';
 }
 
-/**
- * Handle Adding New Dynamic Class
- */
-function handleAddClass(event) {
-  event.preventDefault();
-  const newEntry = {
-    id: `USER_${Date.now()}`,
-    faculty_name: document.getElementById('newFaculty').value,
-    department: 'CSE',
-    course_code: document.getElementById('newCourse').value,
-    section: 'Sec-1',
-    day: document.getElementById('newDay').value,
-    time_slot: document.getElementById('newTimeSlot').value,
-    room: document.getElementById('newRoom').value
-  };
+/* ---------------- Burnout predictor ---------------- */
 
-  activeSchedule.unshift(newEntry);
-  toggleAddModal();
-  analyzeCurrentSchedule();
+function fillFacultyDropdown(list) {
+  const select = document.getElementById('calcFaculty');
+  const chosen = select.value;
+  select.innerHTML = '<option value="">-- choose --</option>' +
+    list.map(f => `<option value="${esc(f.faculty_name)}">${esc(f.faculty_name)}</option>`).join('');
+  select.value = chosen;
 }
 
-/**
- * Handle Stress / Burnout Prediction
- */
-async function handleStressPrediction(event) {
-  if (event) event.preventDefault();
-
-  const payload = {
-    Designation: document.getElementById('calcDesig').value,
-    TeachingHours: parseFloat(document.getElementById('calcTeaching').value) || 12,
-    LabHours: parseFloat(document.getElementById('calcLab').value) || 4,
-    AdminHours: parseFloat(document.getElementById('calcAdmin').value) || 2,
-    ResearchHours: parseFloat(document.getElementById('calcResearch').value) || 2,
-    UniqueCourses: parseInt(document.getElementById('calcCourses').value) || 2,
-    DaysTaught: parseInt(document.getElementById('calcDays').value) || 4
-  };
-
-  try {
-    const res = await fetch('/api/predict-stress', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-
-    const data = await res.json();
-    renderStressResult(data);
-  } catch (err) {
-    console.warn('[ClashAudit] Stress predict fallback:', err);
-    renderStressResult(localStressPredict(payload));
+/** Count a teacher's lecture hours, lab hours, subjects and days from the timetable. */
+function fillFromFaculty() {
+  const name = document.getElementById('calcFaculty').value;
+  if (!name) return;
+  const info = currentReport.workload_distribution.find(f => f.faculty_name === name);
+  const own = currentSchedule.filter(e => e.faculty_name === name);
+  const labs = own.filter(e => (e.course_name || '').toLowerCase().includes('lab')).length;
+  if (['Professor', 'Associate Professor', 'Assistant Professor'].includes(info.designation)) {
+    document.getElementById('calcDesig').value = info.designation;
   }
-}
-
-/**
- * Render Stress Prediction in UI
- */
-function renderStressResult(data) {
-  const badge = document.getElementById('stressBadge');
-  const code = data.prediction_code;
-
-  if (code === 2) {
-    badge.className = 'stress-badge tag-badge red';
-    badge.innerText = '⚠️ HIGH BURNOUT RISK (OVERLOADED)';
-  } else if (code === 0) {
-    badge.className = 'stress-badge tag-badge amber';
-    badge.innerText = '⚡ UNDERLOADED / SPARE CAPACITY';
-  } else {
-    badge.className = 'stress-badge tag-badge green';
-    badge.innerText = '✅ BALANCED WORKLOAD (OPTIMAL)';
-  }
-
-  document.getElementById('stressHoursInfo').innerHTML = `
-    Total Workload: <strong>${data.total_hours} hrs/week</strong> | Max Permissible Cap: <strong>${data.max_allowed_hours} hrs</strong> (Utilization: ${data.utilization_ratio}%)
-  `;
-
-  const probs = data.probabilities;
-  document.getElementById('probUnderload').style.width = `${probs.Underloaded}%`;
-  document.getElementById('probUnderloadVal').innerText = `${probs.Underloaded}%`;
-
-  document.getElementById('probBalanced').style.width = `${probs.Balanced}%`;
-  document.getElementById('probBalancedVal').innerText = `${probs.Balanced}%`;
-
-  document.getElementById('probOverload').style.width = `${probs.Overloaded}%`;
-  document.getElementById('probOverloadVal').innerText = `${probs.Overloaded}%`;
-
-  document.getElementById('stressRecommendation').innerText = data.recommendation;
-}
-
-/**
- * Load Sample Faculty Profile into Calculator
- */
-function loadSampleFaculty(type) {
-  if (type === 'overloaded') {
-    document.getElementById('calcDesig').value = 'Assistant Professor';
-    document.getElementById('calcTeaching').value = 16;
-    document.getElementById('calcLab').value = 8;
-    document.getElementById('calcAdminHours') ? document.getElementById('calcAdminHours').value = 3 : document.getElementById('calcAdmin').value = 3;
-    document.getElementById('calcResearch').value = 2;
-    document.getElementById('calcCourses').value = 3;
-    document.getElementById('calcDays').value = 5;
-  }
+  document.getElementById('calcTeaching').value = own.length - labs;
+  document.getElementById('calcLab').value = labs;
+  document.getElementById('calcCourses').value = Math.max(1, new Set(own.map(e => e.course_code)).size);
+  document.getElementById('calcDays').value = Math.max(1, new Set(own.map(e => e.day)).size);
   handleStressPrediction();
 }
 
-/**
- * Fallback Data for offline execution
- */
-function getFallbackScenario(key) {
-  return [
-    {"id": "S1", "faculty_name": "Dr. Rajesh Sharma", "department": "CSE", "course_code": "CS301", "section": "CSE-A", "day": "Monday", "time_slot": "09:00 - 10:00", "room": "LH-101"},
-    {"id": "S2", "faculty_name": "Prof. Ananya Iyer", "department": "CSE", "course_code": "CS302", "section": "CSE-B", "day": "Monday", "time_slot": "10:00 - 11:00", "room": "LH-102"}
-  ];
+function loadOverloadExample() {
+  document.getElementById('calcFaculty').value = '';
+  document.getElementById('calcDesig').value = 'Assistant Professor';
+  document.getElementById('calcTeaching').value = 16;
+  document.getElementById('calcLab').value = 8;
+  document.getElementById('calcAdmin').value = 3;
+  document.getElementById('calcResearch').value = 2;
+  document.getElementById('calcCourses').value = 3;
+  document.getElementById('calcDays').value = 5;
+  handleStressPrediction();
 }
 
-function localAnalyze(sch) {
-  return {
-    total_conflicts: 0,
-    critical_conflicts: 0,
-    warning_conflicts: 0,
-    conflicts_list: [],
-    workload_distribution: [
-      { faculty_name: "Dr. Rajesh Sharma", designation: "Professor", department: "CSE", assigned_hours: 12, max_hours: 14, utilization_percentage: 85.7, status: "Balanced" }
-    ],
-    workload_balance_score: 95.0,
-    suggestions: []
+async function handleStressPrediction(event) {
+  if (event) event.preventDefault();
+  const num = id => parseFloat(document.getElementById(id).value) || 0;
+  const payload = {
+    Designation: document.getElementById('calcDesig').value,
+    TeachingHours: num('calcTeaching'),
+    LabHours: num('calcLab'),
+    AdminHours: num('calcAdmin'),
+    ResearchHours: num('calcResearch'),
+    UniqueCourses: num('calcCourses') || 1,
+    DaysTaught: num('calcDays') || 1
   };
+  try {
+    const res = await fetch('/api/predict-stress', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': CSRF },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      document.getElementById('stressRecommendation').innerText = data.error || 'Prediction failed.';
+      return;
+    }
+    renderStressResult(data);
+  } catch (err) {
+    document.getElementById('stressRecommendation').innerText = 'Could not reach the server.';
+  }
 }
 
-function localStressPredict(p) {
-  const tot = p.TeachingHours + p.LabHours + p.AdminHours + p.ResearchHours;
-  const isOver = tot > 18;
-  return {
-    prediction_code: isOver ? 2 : 1,
-    prediction_label: isOver ? 'Overloaded' : 'Balanced',
-    total_hours: tot,
-    max_allowed_hours: 18,
-    utilization_ratio: Math.round((tot / 18) * 100),
-    probabilities: {
-      Underloaded: isOver ? 2 : 10,
-      Balanced: isOver ? 8 : 82,
-      Overloaded: isOver ? 90 : 8
-    },
-    recommendation: isOver ? "Workload exceeds institutional limits. Reassign classes." : "Workload balanced."
-  };
+function renderStressResult(data) {
+  const badge = document.getElementById('stressBadge');
+  const looks = {
+    2: ['red', '⚠️ HIGH BURNOUT RISK (OVERLOADED)'],
+    0: ['amber', '⚡ UNDERLOADED / SPARE CAPACITY'],
+    1: ['green', '✅ BALANCED WORKLOAD']
+  }[data.prediction_code];
+  badge.className = `stress-badge tag-badge ${looks[0]}`;
+  badge.innerText = looks[1];
+
+  document.getElementById('stressHoursInfo').innerHTML =
+    `Total: <strong>${data.total_hours} hrs/week</strong> | Limit: <strong>${data.max_allowed_hours} hrs</strong> (${data.utilization_ratio}%)`;
+
+  const p = data.probabilities;
+  [['probUnderload', p.Underloaded], ['probBalanced', p.Balanced], ['probOverload', p.Overloaded]]
+    .forEach(([id, value]) => {
+      document.getElementById(id).style.width = `${value}%`;
+      document.getElementById(id + 'Val').innerText = `${value}%`;
+    });
+  document.getElementById('stressRecommendation').innerText = data.recommendation;
 }

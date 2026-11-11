@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Faculty{% endblock %}
+{% block content %}
+<datalist id="deptList">{% for d in departments %}<option value="{{ d }}">{% endfor %}</datalist>
+
+<div class="card">
+  <div class="card-header">
+    <h3>Faculty ({{ faculty|length }})</h3>
+    <p class="card-desc">Weekly limit comes from the designation (see Settings) unless a custom value is set.
+      "Subjects" is the list of subjects a teacher can take. It is used for qualification checks and substitute suggestions.</p>
+  </div>
+  <div class="table-responsive">
+    <table class="data-table">
+      <thead><tr><th>Name</th><th>Department</th><th>Designation</th><th>Hours / limit</th><th>Status</th><th>Subjects</th><th></th></tr></thead>
+      <tbody>
+        {% for f in faculty %}
+        {% set w = f.workload %}
+        {% set color = {'Overloaded': 'red', 'Underloaded': 'amber', 'Balanced': 'green'}.get(w.status, 'grey') %}
+        <tr>
+          <td><strong>{{ f.name }}</strong></td>
+          <td>{{ f.department }}</td>
+          <td>{{ f.designation }}</td>
+          <td>{{ w.assigned_hours or 0 }} / {{ f.max_hours }}</td>
+          <td><span class="tag-badge {{ color }}">{{ w.status or 'Unassigned' }}</span></td>
+          <td class="muted">{{ f.subjects|join(', ') or '-' }}</td>
+          <td class="actions">
+            <a class="link-sm" href="{{ url_for('print_timetable', kind='faculty', name=f.name) }}">Timetable</a>
+            {% if is_admin %}
+            <a class="link-sm" href="{{ url_for('faculty_edit', name=f.name) }}">Edit</a>
+            <form method="post" action="{{ url_for('faculty_delete', name=f.name) }}" data-confirm="Remove {{ f.name }}?">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="link-btn danger" type="submit">Delete</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="muted">No faculty yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if is_admin %}
+<div class="grid-2col">
+  <div class="card">
+    <h3>Add faculty</h3>
+    <form method="post" action="{{ url_for('faculty_add') }}" class="stack-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="form-group"><label for="name">Full name</label><input id="name" name="name" required placeholder="Dr. First Last"></div>
+      <div class="form-row">
+        <div class="form-group"><label for="department">Department</label><input id="department" name="department" list="deptList" required placeholder="CSE"></div>
+        <div class="form-group">
+          <label for="designation">Designation</label>
+          <select id="designation" name="designation">
+            {% for d in designations %}<option>{{ d }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="form-group"><label for="max_hours">Custom weekly limit (leave empty to use the designation's limit)</label><input id="max_hours" name="max_hours" type="number" min="1" max="40"></div>
+      <button class="btn btn-primary" type="submit">Add faculty</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h3>Import faculty list</h3>
+    <p class="card-desc">CSV or Excel with columns <code>name, department, designation</code> (optional <code>max_hours</code>).
+      Existing names are updated. <a href="{{ url_for('download_template', kind='faculty') }}">Download a sample file</a>.</p>
+    <form method="post" action="{{ url_for('faculty_import') }}" enctype="multipart/form-data" class="stack-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="file" name="file" accept=".csv,.xlsx,.xls" required>
+      <button class="btn btn-primary" type="submit">Import</button>
+    </form>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
