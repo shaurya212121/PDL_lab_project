@@ -165,6 +165,13 @@ CREATE TABLE IF NOT EXISTS long_term_covers (
     timetable_id       INTEGER NOT NULL,
     cover_faculty_name TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS holidays (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    holiday_date TEXT UNIQUE NOT NULL,
+    name         TEXT NOT NULL,
+    holiday_type TEXT NOT NULL DEFAULT 'Institutional',
+    description  TEXT
+);
 """
 
 
@@ -491,6 +498,28 @@ def assign_long_term_cover(long_term_leave_id, timetable_id, cover_faculty_name)
 def remove_long_term_cover(long_term_leave_id, timetable_id):
     execute("DELETE FROM long_term_covers WHERE long_term_leave_id = ? AND timetable_id = ?",
             (long_term_leave_id, timetable_id))
+
+
+# ---------------------------------------------------------------------------
+# Holidays & Institutional Calendar
+# ---------------------------------------------------------------------------
+def get_holidays():
+    return query("SELECT * FROM holidays ORDER BY holiday_date ASC")
+
+
+def get_holiday(holiday_date):
+    rows = query("SELECT * FROM holidays WHERE holiday_date = ?", (holiday_date,))
+    return rows[0] if rows else None
+
+
+def add_holiday(holiday_date, name, holiday_type="Institutional", description=""):
+    return execute("INSERT OR REPLACE INTO holidays (holiday_date, name, holiday_type, description) "
+                   "VALUES (?, ?, ?, ?)",
+                   (holiday_date.strip(), name.strip(), holiday_type.strip(), description.strip()))
+
+
+def delete_holiday(holiday_id):
+    execute("DELETE FROM holidays WHERE id = ?", (holiday_id,))
 
 
 # ---------------------------------------------------------------------------

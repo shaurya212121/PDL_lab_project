@@ -835,6 +835,9 @@ def leave_add():
         return redirect(url_for("leave_page"))
     if name not in db.get_faculty_catalog():
         flash("Please choose a faculty member.", "error")
+    elif db.get_holiday(leave_date):
+        h = db.get_holiday(leave_date)
+        flash(f"{leave_date} is already an institutional holiday ({h['name']}). All classes are suspended; no leave required.", "warning")
     elif db.query("SELECT id FROM leaves WHERE faculty_name = ? AND leave_date = ?", (name, leave_date)):
         flash(f"{name} is already marked on leave on {leave_date}.", "warning")
     else:
@@ -926,6 +929,39 @@ def long_term_unassign(leave_id, timetable_id):
     db.remove_long_term_cover(leave_id, timetable_id)
     flash("Cover assignment removed.", "success")
     return redirect(url_for("leave_page"))
+
+
+# ---------------------------------------------------------------------------
+# Institutional Holidays & Academic Calendar
+# ---------------------------------------------------------------------------
+@app.route("/holidays")
+def holidays_page():
+    return render_template("holidays.html", holidays=db.get_holidays(),
+                           today=date.today().isoformat())
+
+
+@app.route("/holidays/add", methods=["POST"])
+@login_required
+def holiday_add():
+    h_date = request.form.get("holiday_date", "").strip()
+    name = request.form.get("name", "").strip()
+    h_type = request.form.get("holiday_type", "Institutional").strip()
+    desc = request.form.get("description", "").strip()
+
+    if not h_date or not name:
+        flash("Date and holiday name are required.", "error")
+    else:
+        db.add_holiday(h_date, name, h_type, desc)
+        flash(f"Declared institutional holiday '{name}' on {h_date}.", "success")
+    return redirect(url_for("holidays_page"))
+
+
+@app.route("/holidays/delete/<int:holiday_id>", methods=["POST"])
+@login_required
+def holiday_delete(holiday_id):
+    db.delete_holiday(holiday_id)
+    flash("Holiday removed.", "success")
+    return redirect(url_for("holidays_page"))
 
 
 # ---------------------------------------------------------------------------

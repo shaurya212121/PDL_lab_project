@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Institutional Holidays & Academic Calendar{% endblock %}
+{% block content %}
+
+<div class="card">
+  <div class="card-header-flex">
+    <div>
+      <h3>Institutional Holidays & Academic Non-Instructional Days</h3>
+      <p class="card-desc">Scheduled holidays automatically suppress classes and prevent unnecessary substitute assignments on non-working dates.</p>
+    </div>
+  </div>
+
+  <div class="grid-2col">
+    <!-- List of Holidays -->
+    <div>
+      <h4>Scheduled Holidays ({{ holidays|length }})</h4>
+      <div class="table-responsive" style="margin-top: 0.75rem;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Holiday Name</th>
+              <th>Category</th>
+              <th>Notes</th>
+              {% if is_admin %}<th></th>{% endif %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for h in holidays %}
+            <tr>
+              <td><code>{{ h.holiday_date }}</code></td>
+              <td><strong>{{ h.name }}</strong></td>
+              <td>
+                <span class="tag-badge {{ 'purple' if h.holiday_type == 'National' else ('blue' if h.holiday_type == 'Academic Recess' else 'amber') }}">
+                  {{ h.holiday_type }}
+                </span>
+              </td>
+              <td class="muted" style="font-size: 0.8rem;">{{ h.description or '-' }}</td>
+              {% if is_admin %}
+              <td class="actions">
+                <form method="post" action="{{ url_for('holiday_delete', holiday_id=h.id) }}" data-confirm="Remove '{{ h.name }}' from institutional holidays?">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button class="link-btn danger" type="submit">Delete</button>
+                </form>
+              </td>
+              {% endif %}
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="muted">No institutional holidays declared yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Add Holiday Form -->
+    {% if is_admin %}
+    <div>
+      <h4>Declare New Holiday / Non-Instructional Day</h4>
+      <p class="card-desc">Classes falling on this date will be recognized as suspended.</p>
+
+      <form method="post" action="{{ url_for('holiday_add') }}" class="stack-form" style="margin-top: 0.75rem;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-group">
+          <label for="h_name">Holiday / Recess Title</label>
+          <input id="h_name" name="name" placeholder="e.g. Republic Day, Diwali, Semester Break" required>
+        </div>
+        <div class="form-row-2">
+          <div class="form-group">
+            <label for="h_date">Date</label>
+            <input id="h_date" name="holiday_date" type="date" value="{{ today }}" required>
+          </div>
+          <div class="form-group">
+            <label for="h_type">Category</label>
+            <select id="h_type" name="holiday_type">
+              <option value="National">National / Public Holiday</option>
+              <option value="Institutional" selected>Institutional Holiday</option>
+              <option value="Academic Recess">Academic Recess / Term Break</option>
+              <option value="Festival">Festival Break</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="h_desc">Description / Remarks (Optional)</label>
+          <input id="h_desc" name="description" placeholder="e.g. All academic and lab sessions suspended">
+        </div>
+        <button class="btn btn-primary" type="submit">Declare Holiday</button>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}
