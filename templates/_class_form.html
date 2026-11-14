@@ -51,6 +51,16 @@
       {% endfor %}
     </select>
   </div>
+  {% if not entry %}
+  <div class="form-group">
+    <label for="f_duration">Duration</label>
+    <select id="f_duration" name="duration">
+      <option value="1" selected>1 Hour (Standard Lecture)</option>
+      <option value="2">2 Hours (Continuous Lab Block)</option>
+      <option value="3">3 Hours (Extended Practical)</option>
+    </select>
+  </div>
+  {% endif %}
   <div class="form-group">
     <label for="f_room">Room</label>
     <select id="f_room" name="room" required>

@@ -255,6 +255,51 @@ class ConflictDetector:
                      f"{f_name} is not listed as a teacher for {entry.get('course_code')}. "
                      f"Update the subject mapping on the Faculty page if this is correct.")
 
+        # ---- 11. Multi-Hour Continuous Lab Integrity ------------------
+        # If a lab class is scheduled on a day, check if it forms a contiguous
+        # block (e.g. 2 hours) or is fragmented as isolated 1-hour sessions.
+        section_day_labs = defaultdict(lambda: defaultdict(list))
+        for entry in schedule_entries:
+            if self.is_lab_course(entry):
+                sec = entry.get("section")
+                day = entry.get("day")
+                code = entry.get("course_code")
+                slot = entry.get("time_slot")
+                if slot in slot_index:
+                    section_day_labs[(sec, code)][day].append(entry)
+
+        for (sec, code), days_dict in section_day_labs.items():
+            for day, lab_entries in days_dict.items():
+                if len(lab_entries) > 1:
+                    # Check room consistency
+                    rooms_used = {e.get("room") for e in lab_entries}
+                    if len(rooms_used) > 1:
+                        conflicts.append({
+                            "id": f"LAB_ROOM_SPLIT|{sec}|{code}|{day}",
+                            "type": "LAB_ROOM_SPLIT", "severity": "WARNING", "badge": "Lab Integrity",
+                            "title": f"Lab Room Split: {code} ({sec})",
+                            "day": day, "time_slot": "Multi-slot",
+                            "description": f"Lab {code} for {sec} on {day} is split across different rooms: {', '.join(rooms_used)}.",
+                            "involved_entries": [e.get("id") for e in lab_entries],
+                        })
+                    # Check contiguous sequence
+                    idxs = sorted([slot_index[e.get("time_slot")] for e in lab_entries])
+                    is_contiguous = True
+                    for k in range(1, len(idxs)):
+                        prev_s = time_slots[idxs[k - 1]]
+                        if idxs[k] != idxs[k - 1] + 1 or prev_s == lunch_after:
+                            is_contiguous = False
+                            break
+                    if not is_contiguous:
+                        conflicts.append({
+                            "id": f"LAB_FRAGMENTED|{sec}|{code}|{day}",
+                            "type": "LAB_FRAGMENTED", "severity": "WARNING", "badge": "Lab Integrity",
+                            "title": f"Fragmented Lab Block: {code} ({sec})",
+                            "day": day, "time_slot": "Non-contiguous",
+                            "description": f"Lab sessions for {code} ({sec}) on {day} are not scheduled back-to-back as a continuous block.",
+                            "involved_entries": [e.get("id") for e in lab_entries],
+                        })
+
         # ---- 6. Weekly workload per faculty ---------------------------
         workload_distribution = []
         utilization_list = []

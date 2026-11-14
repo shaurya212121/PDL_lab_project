@@ -24,6 +24,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from core import database as db
 from core import file_io, reports
 from core.conflict_detector import ConflictDetector
+from core.generator import TimetableGenerator
 from core.scenarios import SCENARIOS
 from core.substitutes import classes_missed, substitute_options, weekday_of
 
@@ -291,10 +292,54 @@ def timetable_add():
                 entry["day"], entry["time_slot"], entry["room"]]):
         flash("Please fill in every field.", "error")
         return redirect(url_for("timetable_page"))
-    new_id = db.add_entry(entry)
-    if not flash_conflicts_for(new_id):
-        flash(f"Added {entry['course_code']} ({entry['section']}) on {entry['day']} {entry['time_slot']}. "
-              f"No conflicts.", "success")
+
+    duration = form_int("duration", 1)
+    if duration <= 1:
+        new_id = db.add_entry(entry)
+        if not flash_conflicts_for(new_id):
+            flash(f"Added {entry['course_code']} ({entry['section']}) on {entry['day']} {entry['time_slot']}. "
+                  f"No conflicts.", "success")
+    else:
+        # Multi-hour continuous block: find consecutive slots
+        settings = db.get_settings()
+        time_slots = settings.get("time_slots", [])
+        lunch_after = settings.get("lunch_after", "")
+        start_slot = entry["time_slot"]
+        if start_slot not in time_slots:
+            flash(f"Invalid starting time slot '{start_slot}'.", "error")
+            return redirect(url_for("timetable_page"))
+
+        start_idx = time_slots.index(start_slot)
+        if start_idx + duration > len(time_slots):
+            flash(f"Cannot schedule a {duration}-hour block starting at {start_slot}: exceeds daily schedule.", "error")
+            return redirect(url_for("timetable_page"))
+
+        consecutive_slots = time_slots[start_idx:start_idx + duration]
+        # Check if lunch break is crossed inside the block
+        crosses_lunch = False
+        for s in consecutive_slots[:-1]:
+            if s == lunch_after:
+                crosses_lunch = True
+                break
+        if crosses_lunch:
+            flash(f"A {duration}-hour continuous block cannot cross the lunch break ({lunch_after}).", "error")
+            return redirect(url_for("timetable_page"))
+
+        added_ids = []
+        for s in consecutive_slots:
+            slot_entry = dict(entry)
+            slot_entry["time_slot"] = s
+            added_ids.append(db.add_entry(slot_entry))
+
+        any_problems = False
+        for eid in added_ids:
+            if flash_conflicts_for(eid):
+                any_problems = True
+
+        if not any_problems:
+            flash(f"Added {duration}-hour block for {entry['course_code']} ({entry['section']}) on {entry['day']} "
+                  f"({consecutive_slots[0]} to {consecutive_slots[-1]}). No conflicts.", "success")
+
     return redirect(url_for("timetable_page"))
 
 
@@ -356,6 +401,71 @@ def timetable_import():
     if errors:
         flash(f"{len(errors)} row(s) skipped: " + " | ".join(errors[:5])
               + (" ..." if len(errors) > 5 else ""), "warning")
+    return redirect(url_for("timetable_page"))
+
+
+# ---------------------------------------------------------------------------
+# Automated Timetable Generator (CSP / Backtracking)
+# ---------------------------------------------------------------------------
+@app.route("/generate")
+@login_required
+def generate_page():
+    return render_template("generate.html", sections=db.get_sections(),
+                           subjects=db.get_subjects(), faculty=db.get_faculty(),
+                           rooms=db.get_rooms())
+
+
+@app.route("/generate/run", methods=["POST"])
+@login_required
+def generate_run():
+    reqs_json = request.form.get("requirements_json", "[]")
+    mode = request.form.get("mode", "replace")
+    try:
+        requirements = json.loads(reqs_json)
+    except Exception as e:
+        flash(f"Invalid requirements format: {e}", "error")
+        return redirect(url_for("generate_page"))
+
+    if not requirements:
+        flash("No course requirements provided to generate timetable.", "error")
+        return redirect(url_for("generate_page"))
+
+    # Instantiate the CSP solver
+    generator = TimetableGenerator(
+        faculty=db.get_faculty(),
+        rooms=db.get_rooms(),
+        sections=db.get_sections(),
+        subjects=db.get_subjects(),
+        faculty_subjects=db.get_faculty_subjects(),
+        settings=db.get_settings()
+    )
+
+    existing = db.get_timetable() if mode == "append" else []
+    success, schedule, stats = generator.generate(requirements, existing_schedule=existing)
+
+    if not success and not schedule:
+        flash(f"Generation failed: constraints could not be satisfied. Tried {stats.get('backtracks', 0)} backtracks.", "error")
+        return redirect(url_for("generate_page"))
+
+    # Apply generated timetable
+    if mode == "replace":
+        db.clear_timetable()
+        to_insert = schedule
+    else:
+        # Only insert new classes
+        existing_ids = {e.get("id") for e in existing if e.get("id")}
+        to_insert = [e for e in schedule if e.get("id") not in existing_ids]
+
+    for entry in to_insert:
+        db.add_entry(entry)
+
+    msg = f"Generated {len(to_insert)} classes successfully across departments! ({stats.get('backtracks', 0)} backtracks)."
+    if not success:
+        msg = f"Partial schedule generated: {len(to_insert)} classes placed. Some constraints could not be fitted."
+        flash(msg, "warning")
+    else:
+        flash(msg, "success")
+
     return redirect(url_for("timetable_page"))
 
 
