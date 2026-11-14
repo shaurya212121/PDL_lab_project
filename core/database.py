@@ -121,6 +121,7 @@ CREATE TABLE IF NOT EXISTS timetable (
     course_code  TEXT NOT NULL,
     course_name  TEXT,
     section      TEXT NOT NULL,
+    batch        TEXT DEFAULT 'All',
     day          TEXT NOT NULL,
     time_slot    TEXT NOT NULL,
     room         TEXT NOT NULL
@@ -156,6 +157,13 @@ def init_db(seed_demo_data=True):
     """Create tables (if missing) and fill in starting data the first time."""
     conn = get_connection()
     conn.executescript(SCHEMA)
+
+    # Migration: add batch column to timetable table if existing database lacks it
+    try:
+        conn.execute("ALTER TABLE timetable ADD COLUMN batch TEXT DEFAULT 'All'")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass  # Column already exists
 
     # Default settings: only add keys that are not already saved
     for key, value in DEFAULT_SETTINGS.items():
@@ -319,7 +327,7 @@ def set_subjects_of(faculty_name, course_codes):
 # Timetable
 # ---------------------------------------------------------------------------
 TIMETABLE_FIELDS = ["faculty_name", "department", "course_code", "course_name",
-                    "section", "day", "time_slot", "room"]
+                    "section", "batch", "day", "time_slot", "room"]
 
 
 def get_timetable():
@@ -328,26 +336,35 @@ def get_timetable():
     day_order = {d: i for i, d in enumerate(ALL_DAYS)}
     slot_order = {s: i for i, s in enumerate(settings["time_slots"])}
     rows = query("SELECT * FROM timetable")
+    for r in rows:
+        if not r.get("batch"):
+            r["batch"] = "All"
     rows.sort(key=lambda r: (day_order.get(r["day"], 99), slot_order.get(r["time_slot"], 99),
-                             r["section"]))
+                             r["section"], r.get("batch", "All")))
     return rows
 
 
 def get_entry(entry_id):
     rows = query("SELECT * FROM timetable WHERE id = ?", (entry_id,))
+    if rows and not rows[0].get("batch"):
+        rows[0]["batch"] = "All"
     return rows[0] if rows else None
 
 
 def add_entry(entry):
+    if not entry.get("batch"):
+        entry["batch"] = "All"
     values = [str(entry.get(f, "") or "").strip() for f in TIMETABLE_FIELDS]
     return execute("INSERT INTO timetable (faculty_name, department, course_code, course_name, "
-                   "section, day, time_slot, room) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", values)
+                   "section, batch, day, time_slot, room) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", values)
 
 
 def update_entry(entry_id, entry):
+    if not entry.get("batch"):
+        entry["batch"] = "All"
     values = [str(entry.get(f, "") or "").strip() for f in TIMETABLE_FIELDS]
     execute("UPDATE timetable SET faculty_name=?, department=?, course_code=?, course_name=?, "
-            "section=?, day=?, time_slot=?, room=? WHERE id=?", values + [entry_id])
+            "section=?, batch=?, day=?, time_slot=?, room=? WHERE id=?", values + [entry_id])
 
 
 def delete_entry(entry_id):

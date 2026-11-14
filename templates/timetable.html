@@ -39,7 +39,7 @@
   <div class="table-responsive">
     <table class="data-table">
       <thead>
-        <tr><th>Day</th><th>Time</th><th>Subject</th><th>Section</th><th>Faculty</th><th>Room</th><th>Status</th>{% if is_admin %}<th></th>{% endif %}</tr>
+        <tr><th>Day</th><th>Time</th><th>Subject</th><th>Section</th><th>Batch</th><th>Faculty</th><th>Room</th><th>Status</th>{% if is_admin %}<th></th>{% endif %}</tr>
       </thead>
       <tbody>
         {% for e in rows %}
@@ -49,6 +49,13 @@
           <td><code>{{ e.time_slot }}</code></td>
           <td><strong>{{ e.course_code }}</strong> <span class="muted">{{ e.course_name }}</span></td>
           <td>{{ e.section }}</td>
+          <td>
+            {% if e.batch and e.batch != 'All' %}
+              <span class="tag-badge purple">{{ e.batch }}</span>
+            {% else %}
+              <span class="muted">All</span>
+            {% endif %}
+          </td>
           <td>{{ e.faculty_name }}</td>
           <td><code>{{ e.room }}</code></td>
           <td>

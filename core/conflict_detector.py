@@ -149,20 +149,47 @@ class ConflictDetector:
                     "target_room": room,
                 })
 
-        # ---- 3. Section (student) clash -------------------------------
+        # ---- 3. Section & Lab Batch clash ----------------------------
+        # If classes are for the entire section (batch == "All"), any parallel class is a clash.
+        # If classes are split into distinct lab batches (e.g. Batch B1 in Lab-1 and Batch B2 in Lab-2),
+        # they are fully valid parallel sessions! They only clash if the SAME batch is double-booked
+        # or if an "All" class overlaps with a specific batch.
         for (section, day, slot), entries in section_slot_map.items():
             if len(entries) > 1:
-                details = " & ".join(f"{e.get('course_code')} by {e.get('faculty_name')}" for e in entries)
-                conflicts.append({
-                    "id": f"SEC|{section}|{day}|{slot}",
-                    "type": "SECTION_CLASH", "severity": "CRITICAL", "badge": "Hard Conflict",
-                    "title": f"Section Clash: {section}",
-                    "day": day, "time_slot": slot,
-                    "description": f"Students of {section} have {len(entries)} classes at the same time "
-                                   f"on {day} {slot}: {details}.",
-                    "involved_entries": [e.get("id") for e in entries],
-                    "target_section": section,
-                })
+                # Group by batch
+                batches_at_slot = defaultdict(list)
+                for e in entries:
+                    b = (e.get("batch") or "All").strip()
+                    batches_at_slot[b].append(e)
+
+                has_all = "All" in batches_at_slot
+                batch_collision = False
+                clashed_subset = []
+
+                if has_all and len(entries) > len(batches_at_slot.get("All", [])):
+                    # "All" class overlaps with specific batches (e.g. Whole class lecture vs Batch 1 lab)
+                    batch_collision = True
+                    clashed_subset = entries
+                else:
+                    for b, b_entries in batches_at_slot.items():
+                        if len(b_entries) > 1:
+                            # Same batch double-booked!
+                            batch_collision = True
+                            clashed_subset.extend(b_entries)
+
+                if batch_collision:
+                    details = " & ".join(f"{e.get('course_code')}[{e.get('batch') or 'All'}] by {e.get('faculty_name')}"
+                                         for e in clashed_subset)
+                    conflicts.append({
+                        "id": f"SEC|{section}|{day}|{slot}",
+                        "type": "SECTION_CLASH", "severity": "CRITICAL", "badge": "Hard Conflict",
+                        "title": f"Student Section/Batch Clash: {section}",
+                        "day": day, "time_slot": slot,
+                        "description": f"Students of {section} have conflicting overlapping batches at the same time "
+                                       f"on {day} {slot}: {details}.",
+                        "involved_entries": [e.get("id") for e in clashed_subset],
+                        "target_section": section,
+                    })
 
         # ---- 4 & 5. Daily limit and back-to-back fatigue --------------
         slot_index = {s: i for i, s in enumerate(time_slots)}

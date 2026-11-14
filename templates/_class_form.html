@@ -33,6 +33,16 @@
       {% endif %}
     </select>
   </div>
+  <div class="form-group">
+    <label for="f_batch">Lab Batch</label>
+    <select id="f_batch" name="batch">
+      <option value="All" {{ 'selected' if not entry or entry.batch == 'All' }}>Entire Section (All)</option>
+      <option value="B1" {{ 'selected' if entry and entry.batch == 'B1' }}>Batch B1</option>
+      <option value="B2" {{ 'selected' if entry and entry.batch == 'B2' }}>Batch B2</option>
+      <option value="B3" {{ 'selected' if entry and entry.batch == 'B3' }}>Batch B3</option>
+      <option value="B4" {{ 'selected' if entry and entry.batch == 'B4' }}>Batch B4</option>
+    </select>
+  </div>
 </div>
 <div class="form-row-3">
   <div class="form-group">
