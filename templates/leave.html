@@ -2,6 +2,13 @@
 {% block title %}Leave & Substitutes{% endblock %}
 {% block content %}
 
+{% set p = request.path %}
+<div class="hub-subnav">
+  <span class="hub-subnav-label">Leave & Calendar:</span>
+  <a href="{{ url_for('leave_page') }}" class="{{ 'active' if p.startswith('/leave') }}">Leaves & Substitutions</a>
+  <a href="{{ url_for('holidays_page') }}" class="{{ 'active' if p.startswith('/holidays') }}">Institutional Holidays & Academic Recess</a>
+</div>
+
 <div class="grid-2col">
   <div class="card">
     <h3>Mark a faculty member on leave</h3>

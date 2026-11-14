@@ -1,6 +1,14 @@
 {% extends "base.html" %}
 {% block title %}Print timetables{% endblock %}
 {% block content %}
+
+{% set p = request.path %}
+<div class="hub-subnav">
+  <span class="hub-subnav-label">Reports & Print Workspace:</span>
+  <a href="{{ url_for('reports_page') }}" class="{{ 'active' if p.startswith('/reports') }}">Analytics & Workload Charts</a>
+  <a href="{{ url_for('print_menu') }}" class="{{ 'active' if p.startswith('/print') }}">Printable Timetables & Rosters</a>
+</div>
+
 <div class="card">
   <h3>Printable timetables</h3>
   <p class="card-desc">Open a timetable and press <strong>Print</strong> (or Ctrl + P). You can also save it as a PDF from the print window.</p>

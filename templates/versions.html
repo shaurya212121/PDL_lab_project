@@ -2,6 +2,15 @@
 {% block title %}Timetable Versioning & Rollback History{% endblock %}
 {% block content %}
 
+{% set p = request.path %}
+<div class="hub-subnav">
+  <span class="hub-subnav-label">Timetable Workspace:</span>
+  <a href="{{ url_for('timetable_page') }}" class="{{ 'active' if p.startswith('/timetable') }}">Table View</a>
+  {% if is_admin %}<a href="{{ url_for('interactive_editor') }}" class="{{ 'active' if p.startswith('/editor') }}">Interactive Visual Editor</a>{% endif %}
+  {% if is_admin %}<a href="{{ url_for('generate_page') }}" class="{{ 'active' if p.startswith('/generate') }}">AI Auto-Generator</a>{% endif %}
+  {% if is_admin %}<a href="{{ url_for('versions_page') }}" class="{{ 'active' if p.startswith('/versions') }}">Draft Versions & Rollback</a>{% endif %}
+</div>
+
 <div class="card">
   <div class="card-header-flex">
     <div>
