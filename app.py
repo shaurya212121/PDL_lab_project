@@ -507,7 +507,8 @@ def interactive_editor():
     return render_template("editor.html", selected_day=selected_day, group_by=group_by,
                            columns=columns, grid=grid, clashed_ids=clashed_ids,
                            faculty=db.get_faculty(), rooms=db.get_rooms(),
-                           sections=db.get_sections(), settings=settings)
+                           sections=db.get_sections(), subjects=db.get_subjects(),
+                           settings=settings)
 
 
 @app.route("/editor/save", methods=["POST"])
