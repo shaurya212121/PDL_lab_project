@@ -763,8 +763,64 @@ def leave_page():
         upcoming.append(lv)
     upcoming.sort(key=lambda lv: lv["leave_date"])
 
+    # Long-term / Maternity cover plans
+    long_term_leaves = db.get_long_term_leaves()
+    long_term_covers = db.get_long_term_covers()
+    lt_assigned = {(c["long_term_leave_id"], c["timetable_id"]): c["cover_faculty_name"] for c in long_term_covers}
+
+    faculty_list = db.get_faculty()
+    faculty_catalog = db.get_faculty_catalog()
+
+    # Pre-calculate workload and availability for long-term cover options
+    weekly_load = defaultdict(int)
+    for e in timetable:
+        weekly_load[e["faculty_name"]] += 1
+
+    for ltl in long_term_leaves:
+        f_name = ltl["faculty_name"]
+        own_classes = [e for e in timetable if e["faculty_name"] == f_name]
+        ltl["recurring_classes"] = []
+
+        for entry in own_classes:
+            assigned_cover = lt_assigned.get((ltl["id"], entry["id"]))
+            # Eligible colleagues: same department or qualified, free at that day+slot, below weekly limit
+            eligible_covers = []
+            for f in faculty_list:
+                cand_name = f["name"]
+                if cand_name == f_name:
+                    continue
+                cand_info = faculty_catalog.get(cand_name, {})
+                cand_dept = cand_info.get("department")
+                cur_load = weekly_load[cand_name]
+                max_h = cand_info.get("max_hours", 16)
+
+                # Check if free at this recurring slot
+                slot_free = not any(
+                    e["faculty_name"] == cand_name and e["day"] == entry["day"] and e["time_slot"] == entry["time_slot"]
+                    for e in timetable
+                )
+
+                if slot_free and cur_load < max_h:
+                    is_qual = detector.can_teach(cand_name, entry.get("course_code"))
+                    eligible_covers.append({
+                        "name": cand_name,
+                        "department": cand_dept,
+                        "current_hours": cur_load,
+                        "max_hours": max_h,
+                        "qualified": is_qual
+                    })
+
+            # Sort eligible covers: qualified first, then least loaded
+            eligible_covers.sort(key=lambda c: (0 if c["qualified"] else 1, c["current_hours"]))
+
+            ltl["recurring_classes"].append({
+                "entry": entry,
+                "assigned_cover": assigned_cover,
+                "eligible_covers": eligible_covers
+            })
+
     return render_template("leave.html", upcoming=upcoming, past=past, today=today,
-                           faculty=db.get_faculty())
+                           faculty=faculty_list, long_term_leaves=long_term_leaves)
 
 
 @app.route("/leave/add", methods=["POST"])
@@ -816,6 +872,60 @@ def leave_unassign(leave_id, timetable_id):
     db.remove_substitute(leave_id, timetable_id)
     flash("Substitute removed.", "success")
     return redirect(url_for("leave_page") + f"#leave-{leave_id}")
+
+
+# ---------------------------------------------------------------------------
+# Long-Term Leave & Maternity Cover Actions
+# ---------------------------------------------------------------------------
+@app.route("/leave/long-term/add", methods=["POST"])
+@login_required
+def long_term_leave_add():
+    faculty_name = request.form.get("faculty_name", "")
+    leave_type = request.form.get("leave_type", "Maternity Leave")
+    start_date = request.form.get("start_date", "")
+    end_date = request.form.get("end_date", "")
+    notes = request.form.get("notes", "")
+
+    if not faculty_name or not start_date or not end_date:
+        flash("Faculty, start date, and end date are required.", "error")
+        return redirect(url_for("leave_page"))
+
+    if start_date > end_date:
+        flash("Start date must be before end date.", "error")
+        return redirect(url_for("leave_page"))
+
+    new_id = db.add_long_term_leave(faculty_name, leave_type, start_date, end_date, notes)
+    flash(f"Created {leave_type} cover plan for {faculty_name} ({start_date} to {end_date}). Assign designated cover faculty below.", "success")
+    return redirect(url_for("leave_page"))
+
+
+@app.route("/leave/long-term/delete/<int:leave_id>", methods=["POST"])
+@login_required
+def long_term_leave_delete(leave_id):
+    db.delete_long_term_leave(leave_id)
+    flash("Long-term leave cover plan deleted.", "success")
+    return redirect(url_for("leave_page"))
+
+
+@app.route("/leave/long-term/<int:leave_id>/assign", methods=["POST"])
+@login_required
+def long_term_assign(leave_id):
+    timetable_id = form_int("timetable_id")
+    cover_faculty = request.form.get("cover_faculty", "")
+    if not cover_faculty:
+        flash("Please select a cover faculty member.", "error")
+    else:
+        db.assign_long_term_cover(leave_id, timetable_id, cover_faculty)
+        flash(f"Assigned {cover_faculty} as recurring cover for this course.", "success")
+    return redirect(url_for("leave_page"))
+
+
+@app.route("/leave/long-term/<int:leave_id>/unassign/<int:timetable_id>", methods=["POST"])
+@login_required
+def long_term_unassign(leave_id, timetable_id):
+    db.remove_long_term_cover(leave_id, timetable_id)
+    flash("Cover assignment removed.", "success")
+    return redirect(url_for("leave_page"))
 
 
 # ---------------------------------------------------------------------------

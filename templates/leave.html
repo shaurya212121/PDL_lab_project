@@ -27,16 +27,127 @@
     </form>
   </div>
 
-  <div class="card">
-    <h3>Print the day's arrangement</h3>
-    <p class="card-desc">A list of all substitute classes for one date, for the notice board.</p>
-    <form method="get" action="{{ url_for('print_arrangements') }}" class="stack-form">
-      <div class="form-group"><label for="arr_date">Date</label><input id="arr_date" name="date" type="date" value="{{ today }}"></div>
-      <button class="btn btn-secondary" type="submit">Open printable list</button>
+  <div class="card" style="border: 2px solid #8b5cf6; background: #faf5ff;">
+    <h3 style="color: #6b21a8;">Long-Term & Maternity Cover Planner</h3>
+    <p class="card-desc">For maternity leave (6 months), medical leave, or sabbaticals. Select an eligible cover professor to take over all their weekly classes in bulk without manual day-to-day phone calls.</p>
+    <form method="post" action="{{ url_for('long_term_leave_add') }}" class="stack-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="form-row-2">
+        <div class="form-group">
+          <label for="lt_fac">Faculty on Leave</label>
+          <select id="lt_fac" name="faculty_name" required>
+            <option value="">-- choose --</option>
+            {% for f in faculty %}<option value="{{ f.name }}">{{ f.name }} ({{ f.department }})</option>{% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="lt_type">Leave Category</label>
+          <select id="lt_type" name="leave_type">
+            <option value="Maternity Leave">Maternity Leave (26 Weeks / 6 Months)</option>
+            <option value="Medical Sabbatical">Medical Sabbatical (1 - 3 Months)</option>
+            <option value="Research Sabbatical">Research Sabbatical / Fellowship</option>
+            <option value="Extended Unpaid Leave">Extended Leave</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row-2">
+        <div class="form-group">
+          <label for="lt_start">Start Date</label>
+          <input id="lt_start" name="start_date" type="date" value="{{ today }}" required>
+        </div>
+        <div class="form-group">
+          <label for="lt_end">End Date</label>
+          <input id="lt_end" name="end_date" type="date" required>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="lt_notes">Cover Handover Notes</label>
+        <input id="lt_notes" name="notes" placeholder="e.g. Approved maternity leave; reassign course modules and lab supervision">
+      </div>
+      <button class="btn btn-primary" style="background: #7c3aed; border-color: #7c3aed;" type="submit">Create Long-Term Cover Plan</button>
     </form>
-    <p class="hint">How substitutes are chosen: same department, free at that time, not on leave,
-      under their weekly limit. Teachers mapped to the subject come first, then the least loaded.</p>
   </div>
+</div>
+
+<!-- Long-Term Leave Cover Plans Section -->
+{% if long_term_leaves %}
+<div class="card" style="border-top: 4px solid #8b5cf6;">
+  <div class="card-header-flex">
+    <div>
+      <h3 style="color: #5b21b6;">Active Long-Term & Maternity Cover Plans ({{ long_term_leaves|length }})</h3>
+      <p class="card-desc">Recurring weekly teaching assignments for faculty on extended sabbatical or maternity leave.</p>
+    </div>
+  </div>
+
+  {% for ltl in long_term_leaves %}
+  <div style="background: #ffffff; border: 1.5px solid #e9d5ff; border-radius: 10px; padding: 1.25rem; margin-bottom: 1.25rem; box-shadow: 0 2px 5px rgba(0,0,0,0.03);">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.75rem;">
+      <div>
+        <h4 style="font-size: 1.05rem; font-weight: 800; color: #1e1b4b; display: flex; align-items: center; gap: 0.5rem;">
+          {{ ltl.faculty_name }}
+          <span class="tag-badge purple">{{ ltl.leave_type }}</span>
+        </h4>
+        <p class="card-desc" style="margin-top: 2px;">
+          📅 <strong>{{ ltl.start_date }}</strong> to <strong>{{ ltl.end_date }}</strong> &bull; {{ ltl.notes or 'No notes' }}
+        </p>
+      </div>
+      <form method="post" action="{{ url_for('long_term_leave_delete', leave_id=ltl.id) }}" data-confirm="End and delete this long-term leave cover plan?">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-danger-outline btn-sm" type="submit">Delete Cover Plan</button>
+      </form>
+    </div>
+
+    <!-- Classes that need term-long cover -->
+    <table class="data-table" style="font-size: 0.8rem;">
+      <thead><tr><th>Day & Time</th><th>Course</th><th>Section & Batch</th><th>Room</th><th>Designated Cover Faculty</th></tr></thead>
+      <tbody>
+        {% for c in ltl.recurring_classes %}
+        <tr>
+          <td><strong>{{ c.entry.day }}</strong> <code>{{ c.entry.time_slot }}</code></td>
+          <td><strong>{{ c.entry.course_code }}</strong> <span class="muted">{{ c.entry.course_name }}</span></td>
+          <td>{{ c.entry.section }} {% if c.entry.batch and c.entry.batch != 'All' %}<span class="tag-badge purple">{{ c.entry.batch }}</span>{% endif %}</td>
+          <td><code>{{ c.entry.room }}</code></td>
+          <td>
+            {% if c.assigned_cover %}
+              <span class="tag-badge green">{{ c.assigned_cover }}</span>
+              <form method="post" class="inline" action="{{ url_for('long_term_unassign', leave_id=ltl.id, timetable_id=c.entry.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="link-btn" type="submit">Change</button>
+              </form>
+            {% else %}
+              <form method="post" class="inline-add tight" action="{{ url_for('long_term_assign', leave_id=ltl.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="timetable_id" value="{{ c.entry.id }}">
+                <select name="cover_faculty" required>
+                  <option value="">-- Choose Cover Faculty --</option>
+                  {% for opt in c.eligible_covers %}
+                    <option value="{{ opt.name }}">{{ opt.name }} ({{ opt.department }}) &bull; {{ opt.current_hours }}/{{ opt.max_hours }} hrs{{ '' if opt.qualified else ' (unmapped)' }}</option>
+                  {% endfor %}
+                </select>
+                <button class="btn btn-primary btn-sm" style="background: #7c3aed; border-color: #7c3aed;" type="submit">Assign Cover</button>
+              </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="muted">{{ ltl.faculty_name }} has no scheduled classes in the timetable.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="card">
+  <h3>Print the day's arrangement</h3>
+  <p class="card-desc">A list of all substitute classes for one date, for the notice board.</p>
+  <form method="get" action="{{ url_for('print_arrangements') }}" class="stack-form">
+    <div class="form-group"><label for="arr_date">Date</label><input id="arr_date" name="date" type="date" value="{{ today }}"></div>
+    <button class="btn btn-secondary" type="submit">Open printable list</button>
+  </form>
+  <p class="hint">How substitutes are chosen: same department, free at that time, not on leave,
+    under their weekly limit. Teachers mapped to the subject come first, then the least loaded.</p>
 </div>
 
 {% for lv in upcoming %}

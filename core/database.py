@@ -150,6 +150,21 @@ CREATE TABLE IF NOT EXISTS elective_baskets (
     sections     TEXT NOT NULL,
     capacity     INTEGER NOT NULL DEFAULT 60
 );
+CREATE TABLE IF NOT EXISTS long_term_leaves (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    faculty_name TEXT NOT NULL,
+    leave_type   TEXT NOT NULL,
+    start_date   TEXT NOT NULL,
+    end_date     TEXT NOT NULL,
+    status       TEXT NOT NULL DEFAULT 'Active',
+    notes        TEXT
+);
+CREATE TABLE IF NOT EXISTS long_term_covers (
+    id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+    long_term_leave_id INTEGER NOT NULL,
+    timetable_id       INTEGER NOT NULL,
+    cover_faculty_name TEXT NOT NULL
+);
 """
 
 
@@ -437,6 +452,45 @@ def save_elective_basket(basket_name, course_code, course_name, sections, capaci
 
 def delete_elective_basket(basket_id):
     execute("DELETE FROM elective_baskets WHERE id = ?", (basket_id,))
+
+
+# ---------------------------------------------------------------------------
+# Long-Term Leave & Maternity Cover
+# ---------------------------------------------------------------------------
+def get_long_term_leaves():
+    return query("SELECT * FROM long_term_leaves ORDER BY start_date DESC")
+
+
+def get_long_term_leave(leave_id):
+    rows = query("SELECT * FROM long_term_leaves WHERE id = ?", (leave_id,))
+    return rows[0] if rows else None
+
+
+def add_long_term_leave(faculty_name, leave_type, start_date, end_date, notes=""):
+    return execute("INSERT INTO long_term_leaves (faculty_name, leave_type, start_date, end_date, notes) "
+                   "VALUES (?, ?, ?, ?, ?)",
+                   (faculty_name, leave_type, start_date, end_date, notes.strip()))
+
+
+def delete_long_term_leave(leave_id):
+    execute("DELETE FROM long_term_leaves WHERE id = ?", (leave_id,))
+    execute("DELETE FROM long_term_covers WHERE long_term_leave_id = ?", (leave_id,))
+
+
+def get_long_term_covers():
+    return query("SELECT * FROM long_term_covers")
+
+
+def assign_long_term_cover(long_term_leave_id, timetable_id, cover_faculty_name):
+    execute("DELETE FROM long_term_covers WHERE long_term_leave_id = ? AND timetable_id = ?",
+            (long_term_leave_id, timetable_id))
+    execute("INSERT INTO long_term_covers (long_term_leave_id, timetable_id, cover_faculty_name) "
+            "VALUES (?, ?, ?)", (long_term_leave_id, timetable_id, cover_faculty_name))
+
+
+def remove_long_term_cover(long_term_leave_id, timetable_id):
+    execute("DELETE FROM long_term_covers WHERE long_term_leave_id = ? AND timetable_id = ?",
+            (long_term_leave_id, timetable_id))
 
 
 # ---------------------------------------------------------------------------
