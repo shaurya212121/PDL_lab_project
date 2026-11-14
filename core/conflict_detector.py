@@ -53,7 +53,7 @@ DEFAULT_FACULTY_CATALOG = {
 
 class ConflictDetector:
     def __init__(self, faculty_catalog=None, rooms=None, sections=None, subjects=None,
-                 faculty_subjects=None, settings=None):
+                 faculty_subjects=None, settings=None, elective_baskets=None):
         """
         faculty_catalog  : {name: {"designation", "department", "max_hours"}}
         rooms            : list of {"name", "room_type", "capacity"}
@@ -61,12 +61,14 @@ class ConflictDetector:
         subjects         : list of {"code", "name", "department", "is_lab"}
         faculty_subjects : {course_code: [faculty names who can teach it]}
         settings         : dict like DEFAULT_RULES
+        elective_baskets : list of {"basket_name", "course_code", "sections"}
         """
         self.catalog = faculty_catalog if faculty_catalog is not None else DEFAULT_FACULTY_CATALOG
         self.rooms = {r["name"]: r for r in (rooms or [])}
         self.sections = {s["name"]: s for s in (sections or [])}
         self.subjects = {s["code"]: s for s in (subjects or [])}
         self.faculty_subjects = faculty_subjects or {}
+        self.elective_baskets = elective_baskets or []
         self.rules = dict(DEFAULT_RULES)
         if settings:
             self.rules.update(settings)
@@ -147,20 +149,47 @@ class ConflictDetector:
                     "target_room": room,
                 })
 
-        # ---- 3. Section (student) clash -------------------------------
+        # ---- 3. Section & Lab Batch clash ----------------------------
+        # If classes are for the entire section (batch == "All"), any parallel class is a clash.
+        # If classes are split into distinct lab batches (e.g. Batch B1 in Lab-1 and Batch B2 in Lab-2),
+        # they are fully valid parallel sessions! They only clash if the SAME batch is double-booked
+        # or if an "All" class overlaps with a specific batch.
         for (section, day, slot), entries in section_slot_map.items():
             if len(entries) > 1:
-                details = " & ".join(f"{e.get('course_code')} by {e.get('faculty_name')}" for e in entries)
-                conflicts.append({
-                    "id": f"SEC|{section}|{day}|{slot}",
-                    "type": "SECTION_CLASH", "severity": "CRITICAL", "badge": "Hard Conflict",
-                    "title": f"Section Clash: {section}",
-                    "day": day, "time_slot": slot,
-                    "description": f"Students of {section} have {len(entries)} classes at the same time "
-                                   f"on {day} {slot}: {details}.",
-                    "involved_entries": [e.get("id") for e in entries],
-                    "target_section": section,
-                })
+                # Group by batch
+                batches_at_slot = defaultdict(list)
+                for e in entries:
+                    b = (e.get("batch") or "All").strip()
+                    batches_at_slot[b].append(e)
+
+                has_all = "All" in batches_at_slot
+                batch_collision = False
+                clashed_subset = []
+
+                if has_all and len(entries) > len(batches_at_slot.get("All", [])):
+                    # "All" class overlaps with specific batches (e.g. Whole class lecture vs Batch 1 lab)
+                    batch_collision = True
+                    clashed_subset = entries
+                else:
+                    for b, b_entries in batches_at_slot.items():
+                        if len(b_entries) > 1:
+                            # Same batch double-booked!
+                            batch_collision = True
+                            clashed_subset.extend(b_entries)
+
+                if batch_collision:
+                    details = " & ".join(f"{e.get('course_code')}[{e.get('batch') or 'All'}] by {e.get('faculty_name')}"
+                                         for e in clashed_subset)
+                    conflicts.append({
+                        "id": f"SEC|{section}|{day}|{slot}",
+                        "type": "SECTION_CLASH", "severity": "CRITICAL", "badge": "Hard Conflict",
+                        "title": f"Student Section/Batch Clash: {section}",
+                        "day": day, "time_slot": slot,
+                        "description": f"Students of {section} have conflicting overlapping batches at the same time "
+                                       f"on {day} {slot}: {details}.",
+                        "involved_entries": [e.get("id") for e in clashed_subset],
+                        "target_section": section,
+                    })
 
         # ---- 4 & 5. Daily limit and back-to-back fatigue --------------
         slot_index = {s: i for i, s in enumerate(time_slots)}
@@ -254,6 +283,87 @@ class ConflictDetector:
                 warn("NOT_QUALIFIED", "Qualification", f"Subject Not Mapped: {f_name}",
                      f"{f_name} is not listed as a teacher for {entry.get('course_code')}. "
                      f"Update the subject mapping on the Faculty page if this is correct.")
+
+        # ---- 11. Multi-Hour Continuous Lab Integrity ------------------
+        # If a lab class is scheduled on a day, check if it forms a contiguous
+        # block (e.g. 2 hours) or is fragmented as isolated 1-hour sessions.
+        section_day_labs = defaultdict(lambda: defaultdict(list))
+        for entry in schedule_entries:
+            if self.is_lab_course(entry):
+                sec = entry.get("section")
+                day = entry.get("day")
+                code = entry.get("course_code")
+                slot = entry.get("time_slot")
+                if slot in slot_index:
+                    section_day_labs[(sec, code)][day].append(entry)
+
+        for (sec, code), days_dict in section_day_labs.items():
+            for day, lab_entries in days_dict.items():
+                if len(lab_entries) > 1:
+                    # Check room consistency
+                    rooms_used = {e.get("room") for e in lab_entries}
+                    if len(rooms_used) > 1:
+                        conflicts.append({
+                            "id": f"LAB_ROOM_SPLIT|{sec}|{code}|{day}",
+                            "type": "LAB_ROOM_SPLIT", "severity": "WARNING", "badge": "Lab Integrity",
+                            "title": f"Lab Room Split: {code} ({sec})",
+                            "day": day, "time_slot": "Multi-slot",
+                            "description": f"Lab {code} for {sec} on {day} is split across different rooms: {', '.join(rooms_used)}.",
+                            "involved_entries": [e.get("id") for e in lab_entries],
+                        })
+                    # Check contiguous sequence
+                    idxs = sorted([slot_index[e.get("time_slot")] for e in lab_entries])
+                    is_contiguous = True
+                    for k in range(1, len(idxs)):
+                        prev_s = time_slots[idxs[k - 1]]
+                        if idxs[k] != idxs[k - 1] + 1 or prev_s == lunch_after:
+                            is_contiguous = False
+                            break
+                    if not is_contiguous:
+                        conflicts.append({
+                            "id": f"LAB_FRAGMENTED|{sec}|{code}|{day}",
+                            "type": "LAB_FRAGMENTED", "severity": "WARNING", "badge": "Lab Integrity",
+                            "title": f"Fragmented Lab Block: {code} ({sec})",
+                            "day": day, "time_slot": "Non-contiguous",
+                            "description": f"Lab sessions for {code} ({sec}) on {day} are not scheduled back-to-back as a continuous block.",
+                            "involved_entries": [e.get("id") for e in lab_entries],
+                        })
+
+        # ---- 12. Open Electives & Cross-Department Basket Conflicts ---
+        # When an elective course from a basket is scheduled, students from multiple
+        # sections are attending it simultaneously. Any other course scheduled for
+        # those participating sections at the exact same slot causes a cross-department clash.
+        if self.elective_baskets:
+            # Map course_code -> list of affected sections
+            course_basket_sections = defaultdict(list)
+            for b in self.elective_baskets:
+                c_code = b.get("course_code")
+                sec_str = b.get("sections", "")
+                secs = [s.strip() for s in sec_str.replace(";", ",").split(",") if s.strip()]
+                course_basket_sections[c_code].extend(secs)
+
+            for entry in schedule_entries:
+                c_code = entry.get("course_code")
+                if c_code in course_basket_sections:
+                    day = entry.get("day")
+                    slot = entry.get("time_slot")
+                    enrolled_secs = course_basket_sections[c_code]
+                    for enrolled_sec in enrolled_secs:
+                        # Check if this enrolled section has other non-elective classes at this same day & slot
+                        parallel_classes = section_slot_map.get((enrolled_sec, day, slot), [])
+                        for p in parallel_classes:
+                            if p.get("id") != entry.get("id") and p.get("course_code") != c_code:
+                                conflicts.append({
+                                    "id": f"ELECTIVE_CLASH|{c_code}|{enrolled_sec}|{day}|{slot}",
+                                    "type": "ELECTIVE_SECTION_CLASH", "severity": "CRITICAL", "badge": "Hard Conflict",
+                                    "title": f"Cross-Department Elective Clash: {c_code}",
+                                    "day": day, "time_slot": slot,
+                                    "description": f"Students of {enrolled_sec} enrolled in Open Elective {c_code} "
+                                                   f"have a conflicting parallel class: {p.get('course_code')} ({p.get('faculty_name')}) "
+                                                   f"on {day} at {slot}.",
+                                    "involved_entries": [entry.get("id"), p.get("id")],
+                                    "target_section": enrolled_sec,
+                                })
 
         # ---- 6. Weekly workload per faculty ---------------------------
         workload_distribution = []

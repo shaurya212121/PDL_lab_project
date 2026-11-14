@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Examination Supervision Duty Roster{% endblock %}
+{% block content %}
+<div class="print-sheet">
+  <div class="print-head">
+    <div>
+      <p class="print-college">{{ college_name }}</p>
+      <h2>Examination Supervision & Multi-Class Invigilation Roster</h2>
+      <p class="muted">Generated on {{ today }} &bull; Total Scheduled Sessions: {{ sessions|length }}</p>
+    </div>
+    <div class="no-print btn-row">
+      <button class="btn btn-primary" onclick="window.print()">Print Roster</button>
+      <a class="btn btn-secondary" href="{{ url_for('exams_page') }}">Back to Planner</a>
+    </div>
+  </div>
+
+  <table class="grid-table" style="margin-top: 1.5rem;">
+    <thead>
+      <tr>
+        <th style="width: 140px;">Date & Session</th>
+        <th>Course</th>
+        <th>Pooled Student Classes</th>
+        <th style="width: 130px;">Exam Hall</th>
+        <th>Primary Invigilator</th>
+        <th>Assistant / Reliever</th>
+        <th>Notes</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in sessions %}
+      <tr>
+        <td>
+          <strong>{{ s.exam_date }}</strong>
+          <div style="font-size: 0.8rem; font-family: var(--font-mono);">{{ s.time_slot }}</div>
+          <div class="muted" style="font-size: 0.75rem;">{{ s.session_title }}</div>
+        </td>
+        <td>
+          <strong>{{ s.course_code }}</strong>
+          <div>{{ s.course_name or '' }}</div>
+        </td>
+        <td>
+          <strong>{{ s.sections }}</strong>
+          <div class="muted" style="font-size: 0.8rem;">({{ s.total_students }} candidates)</div>
+        </td>
+        <td>
+          <strong>{{ s.room }}</strong>
+        </td>
+        <td>
+          <strong>{{ s.primary_supervisor }}</strong>
+        </td>
+        <td>
+          {{ s.assistant_supervisor or '-' }}
+        </td>
+        <td class="muted" style="font-size: 0.8rem;">
+          {{ s.notes or '-' }}
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="7" class="muted" style="text-align: center; padding: 2rem;">No examination sessions scheduled.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- Supervisor Duty Counts Summary for the Notice Board -->
+  <div style="margin-top: 2.5rem; page-break-before: auto;">
+    <h3>Invigilation Duty Summary per Faculty</h3>
+    <table class="grid-table" style="margin-top: 0.75rem; width: 60%;">
+      <thead>
+        <tr>
+          <th>Faculty Member</th>
+          <th style="text-align: center;">Primary Duties</th>
+          <th style="text-align: center;">Assistant Duties</th>
+          <th style="text-align: center;">Total Invigilations</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for st in duty_summary.stats %}
+        {% if st.total_duties > 0 %}
+        <tr>
+          <td><strong>{{ st.faculty_name }}</strong></td>
+          <td style="text-align: center;">{{ st.primary_duties }}</td>
+          <td style="text-align: center;">{{ st.assistant_duties }}</td>
+          <td style="text-align: center;"><strong>{{ st.total_duties }}</strong></td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

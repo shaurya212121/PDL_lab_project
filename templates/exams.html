@@ -1,0 +1,300 @@
+{% extends "base.html" %}
+{% block title %}Exam Supervision & Multi-Class Cohort Planner{% endblock %}
+{% block content %}
+
+<div class="card">
+  <div class="card-header-flex">
+    <div>
+      <h3>Exam Supervision & Multi-Class Cohort Invigilation Planner</h3>
+      <p class="card-desc">Schedule examinations, pool multiple classes into shared halls (e.g. CSE-A + CSE-B combined), prevent supervisor double-booking, and verify hall capacities.</p>
+    </div>
+    <div style="display: flex; gap: 0.5rem; align-items: center;">
+      <a class="btn btn-secondary-sm" href="{{ url_for('exam_print') }}" target="_blank">
+        Print Duty Roster
+      </a>
+      <div class="badge badge-primary" style="font-size: 0.85rem; padding: 0.4rem 0.8rem;">
+        {{ sessions|length }} Sessions Scheduled
+      </div>
+    </div>
+  </div>
+
+  <!-- Conflicts & Capacity Alert Section -->
+  {% if conflicts.conflicts %}
+  <div style="margin-top: 1.25rem;">
+    <div style="margin-bottom: 0.5rem; font-weight: 700; font-size: 0.95rem; color: {% if conflicts.critical_count > 0 %}var(--danger){% else %}var(--warning){% endif %}; display: flex; align-items: center; gap: 0.5rem;">
+      <span>Scheduling Alerts Detected ({{ conflicts.total_conflicts }}):</span>
+      {% if conflicts.critical_count > 0 %}
+        <span class="tag-badge red">{{ conflicts.critical_count }} Critical Collision(s)</span>
+      {% endif %}
+      {% if conflicts.warning_count > 0 %}
+        <span class="tag-badge amber">{{ conflicts.warning_count }} Capacity / Availability Warning(s)</span>
+      {% endif %}
+    </div>
+
+    <div class="conflicts-container">
+      {% for c in conflicts.conflicts %}
+      <div class="conflict-card {{ c.severity }}">
+        <div class="conflict-left">
+          <h4>{{ c.title }}</h4>
+          <div class="conflict-desc">{{ c.message }}</div>
+        </div>
+        <div class="tag-badge {{ 'red' if c.severity == 'CRITICAL' else 'amber' }}">
+          {{ c.type }}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Main 2-Column Section -->
+  <div class="grid-2col" style="margin-top: 1.25rem;">
+    <!-- Left: Scheduled Sessions Roster -->
+    <div>
+      <h4>Scheduled Examination Sessions ({{ sessions|length }})</h4>
+      <p class="card-desc">Multi-class pooled cohorts and assigned invigilators.</p>
+
+      <div class="table-responsive" style="margin-top: 0.75rem;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Date & Session</th>
+              <th>Course & Combined Classes</th>
+              <th>Hall & Capacity</th>
+              <th>Invigilation Team</th>
+              {% if is_admin %}<th style="text-align: right;"></th>{% endif %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for s in sessions %}
+            <tr>
+              <td>
+                <strong>{{ s.exam_date }}</strong>
+                <div style="font-size: 0.78rem; font-family: var(--font-mono); color: var(--text-muted);">{{ s.time_slot }}</div>
+                <div class="muted" style="font-size: 0.75rem;">{{ s.session_title }}</div>
+              </td>
+              <td>
+                <div style="font-weight: 700; color: #1e3a8a;">
+                  {{ s.course_code }}
+                  <span style="font-weight: normal; font-size: 0.8rem; color: var(--text-muted);">{{ s.course_name or '' }}</span>
+                </div>
+                <div style="margin-top: 0.35rem; display: flex; gap: 0.3rem; flex-wrap: wrap; align-items: center;">
+                  <span style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted);">Pooled:</span>
+                  {% for sec in s.sections.split(',') %}
+                    <span class="tag-badge blue" style="font-size: 0.72rem;">{{ sec.strip() }}</span>
+                  {% endfor %}
+                  <span class="tag-badge purple" style="font-size: 0.72rem; font-weight: 700;">
+                    {{ s.total_students }} Candidates
+                  </span>
+                </div>
+              </td>
+              <td>
+                <strong>{{ s.room }}</strong>
+                <div style="margin-top: 0.2rem;">
+                  <span class="tag-badge green" style="font-size: 0.72rem;">Seated: {{ s.total_students }}</span>
+                </div>
+              </td>
+              <td>
+                <div>
+                  <span class="muted" style="font-size: 0.75rem;">Primary:</span>
+                  <strong>{{ s.primary_supervisor }}</strong>
+                </div>
+                {% if s.assistant_supervisor %}
+                <div style="margin-top: 0.15rem;">
+                  <span class="muted" style="font-size: 0.75rem;">Assistant:</span>
+                  <span>{{ s.assistant_supervisor }}</span>
+                </div>
+                {% endif %}
+                {% if s.notes %}
+                <div class="muted" style="font-size: 0.72rem; margin-top: 0.25rem;">
+                  <em>{{ s.notes }}</em>
+                </div>
+                {% endif %}
+              </td>
+              {% if is_admin %}
+              <td class="actions" style="text-align: right;">
+                <form method="post" action="{{ url_for('exam_delete', session_id=s.id) }}"
+                      data-confirm="Remove exam session for {{ s.course_code }} in {{ s.room }}?">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button class="link-btn danger" type="submit" style="font-size: 0.8rem;">Delete</button>
+                </form>
+              </td>
+              {% endif %}
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="5" class="muted" style="text-align: center; padding: 2rem;">
+                No examination sessions scheduled yet. Use the form on the right to pool sections and allocate supervisors.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Right: Schedule Form -->
+    {% if is_admin %}
+    <div>
+      <h4>Schedule Exam & Assign Invigilators</h4>
+      <p class="card-desc">Pool multiple sections into a common hall and assign faculty supervisors.</p>
+
+      <form method="post" action="{{ url_for('exam_add') }}" class="stack-form" style="margin-top: 0.75rem;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="form-row-2">
+          <div class="form-group">
+            <label for="ex_date">Exam Date</label>
+            <input id="ex_date" name="exam_date" type="date" value="{{ today }}" required>
+          </div>
+          <div class="form-group">
+            <label for="ex_slot">Time Slot / Session</label>
+            <select id="ex_slot" name="time_slot" required>
+              <option value="09:30 - 12:30">Morning (09:30 - 12:30)</option>
+              <option value="14:00 - 17:00">Afternoon (14:00 - 17:00)</option>
+              <option value="09:00 - 11:00">Midterm FN (09:00 - 11:00)</option>
+              <option value="11:30 - 01:30">Midterm Mid-Day (11:30 - 01:30)</option>
+              <option value="02:30 - 04:30">Midterm AN (02:30 - 04:30)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row-2">
+          <div class="form-group">
+            <label for="ex_title">Exam Term / Title</label>
+            <input id="ex_title" name="session_title" placeholder="e.g. Mid-Term Exam, End-Semester" value="Mid-Term Examination" required>
+          </div>
+          <div class="form-group">
+            <label for="ex_course">Subject / Course</label>
+            <select id="ex_course" name="course_code" required>
+              {% for sub in subjects %}
+                <option value="{{ sub.code }}">{{ sub.code }} - {{ sub.name }} ({{ sub.department }})</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <!-- Multi-Class Pooling Checkboxes -->
+        <div class="form-group" style="background: var(--bg-main); padding: 0.75rem; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+            <label style="font-weight: 700; margin-bottom: 0;">Combined Sections (Multi-Class Pooling):</label>
+            <span id="pooled-counter" class="tag-badge purple" style="font-size: 0.75rem;">0 students selected</span>
+          </div>
+          <p class="card-desc" style="margin-bottom: 0.5rem;">Select multiple classes taking the exam together in the same hall:</p>
+          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.4rem;">
+            {% for sec in sections %}
+            <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; cursor: pointer;">
+              <input type="checkbox" name="sections" value="{{ sec.name }}" data-strength="{{ sec.strength }}" onchange="updatePooledCount()">
+              <span><strong>{{ sec.name }}</strong> ({{ sec.department }}, {{ sec.strength }} students)</span>
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="ex_room">Examination Hall / Room</label>
+          <select id="ex_room" name="room" required>
+            {% for r in rooms %}
+              <option value="{{ r.name }}">{{ r.name }} ({{ r.room_type }}, Capacity: {{ r.capacity }})</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-row-2">
+          <div class="form-group">
+            <label for="ex_pri">Primary Supervisor (Invigilator)</label>
+            <select id="ex_pri" name="primary_supervisor" required>
+              <option value="">-- Choose Faculty --</option>
+              {% for f in faculty.values() %}
+                <option value="{{ f.name }}">{{ f.name }} ({{ f.department }} - {{ f.designation }})</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="ex_asst">Assistant Supervisor (Reliever / Co-Invigilator)</label>
+            <select id="ex_asst" name="assistant_supervisor">
+              <option value="">-- None (Single Invigilator) --</option>
+              {% for f in faculty.values() %}
+                <option value="{{ f.name }}">{{ f.name }} ({{ f.department }} - {{ f.designation }})</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="ex_notes">Instructions / Special Seating Notes</label>
+          <input id="ex_notes" name="notes" placeholder="e.g. Alternate bench seating; calculators allowed">
+        </div>
+
+        <button class="btn btn-primary" type="submit">Schedule Exam & Assign Invigilators</button>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Invigilation Workload Fairness Section -->
+  <div style="margin-top: 2rem; border-top: 1px solid var(--border-color); padding-top: 1.5rem;">
+    <div class="card-header-flex">
+      <div>
+        <h4>Faculty Invigilation Duty Allocation & Fairness</h4>
+        <p class="card-desc">Track and balance exam supervision duties evenly across teaching staff (Average: <strong>{{ duty_summary.avg_duties }}</strong> duties/faculty).</p>
+      </div>
+      <div class="tag-badge blue">
+        Total Duties: {{ duty_summary.total_duties }}
+      </div>
+    </div>
+
+    <div class="table-responsive" style="margin-top: 0.75rem;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Faculty Name</th>
+            <th>Department</th>
+            <th>Primary Duties</th>
+            <th>Assistant Duties</th>
+            <th>Total Duties</th>
+            <th>Fairness Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for st in duty_summary.stats %}
+          <tr>
+            <td><strong>{{ st.faculty_name }}</strong></td>
+            <td>
+              {% if faculty[st.faculty_name] %}
+                <span class="tag-badge blue">{{ faculty[st.faculty_name].department }}</span>
+              {% else %}
+                -
+              {% endif %}
+            </td>
+            <td>{{ st.primary_duties }}</td>
+            <td>{{ st.assistant_duties }}</td>
+            <td><strong>{{ st.total_duties }}</strong></td>
+            <td>
+              <span class="tag-badge {{ st.badge_class }}">
+                {{ st.status }}
+              </span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+function updatePooledCount() {
+  const checkboxes = document.querySelectorAll('input[name="sections"]:checked');
+  let total = 0;
+  checkboxes.forEach(cb => {
+    total += parseInt(cb.getAttribute('data-strength') || '60', 10);
+  });
+  const counter = document.getElementById('pooled-counter');
+  if (counter) {
+    counter.textContent = `${total} students selected across ${checkboxes.length} classes`;
+  }
+}
+</script>
+
+{% endblock %}

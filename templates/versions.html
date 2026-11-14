@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}Timetable Versioning & Rollback History{% endblock %}
+{% block content %}
+
+{% set p = request.path %}
+<div class="hub-subnav">
+  <span class="hub-subnav-label">Timetable Workspace:</span>
+  <a href="{{ url_for('timetable_page') }}" class="{{ 'active' if p.startswith('/timetable') }}">Table View</a>
+  {% if is_admin %}<a href="{{ url_for('interactive_editor') }}" class="{{ 'active' if p.startswith('/editor') }}">Interactive Visual Editor</a>{% endif %}
+  {% if is_admin %}<a href="{{ url_for('generate_page') }}" class="{{ 'active' if p.startswith('/generate') }}">AI Auto-Generator</a>{% endif %}
+  {% if is_admin %}<a href="{{ url_for('versions_page') }}" class="{{ 'active' if p.startswith('/versions') }}">Draft Versions & Rollback</a>{% endif %}
+</div>
+
+<div class="card">
+  <div class="card-header-flex">
+    <div>
+      <h3>Timetable Versioning & Rollback History</h3>
+      <p class="card-desc">Save named draft snapshots across academic milestones, compare side-by-side visual diffs, and restore previous schedules in one click.</p>
+    </div>
+    <div class="badge badge-primary" style="font-size: 0.85rem; padding: 0.4rem 0.8rem;">
+      Active Schedule: {{ current_count }} Classes
+    </div>
+  </div>
+
+  <div class="grid-2col" style="margin-top: 1.25rem;">
+    <!-- Saved Snapshots List -->
+    <div>
+      <h4>Saved Timetable Drafts ({{ versions|length }})</h4>
+      <div class="table-responsive" style="margin-top: 0.75rem;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Draft Name</th>
+              <th>Snapshot Date</th>
+              <th>Classes</th>
+              <th>Notes</th>
+              <th style="text-align: right;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for v in versions %}
+            <tr>
+              <td>
+                <strong>{{ v.version_name }}</strong>
+                <div class="muted" style="font-size: 0.75rem;">by {{ v.created_by }}</div>
+              </td>
+              <td><code>{{ v.created_at }}</code></td>
+              <td>
+                <span class="tag-badge blue">{{ v.slot_count }} slots</span>
+              </td>
+              <td class="muted" style="font-size: 0.8rem;">{{ v.description or '-' }}</td>
+              <td class="actions" style="text-align: right;">
+                <div style="display: flex; gap: 0.4rem; justify-content: flex-end; align-items: center;">
+                  <a class="btn btn-secondary-sm" href="{{ url_for('version_diff', version_id=v.id) }}" title="Inspect Visual Diff">
+                    Visual Diff
+                  </a>
+                  <form method="post" action="{{ url_for('version_rollback', version_id=v.id) }}"
+                        data-confirm="Rollback to '{{ v.version_name }}'? This will replace the current active timetable. (An automatic backup will be created)">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-secondary-sm" type="submit" style="color: var(--primary); border-color: var(--primary);">
+                      Rollback
+                    </button>
+                  </form>
+                  <form method="post" action="{{ url_for('version_delete', version_id=v.id) }}"
+                        data-confirm="Delete snapshot '{{ v.version_name }}'?">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="link-btn danger" type="submit" style="font-size: 0.78rem;">Delete</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="5" class="muted" style="text-align: center; padding: 2rem;">
+                No saved drafts yet. Save your current schedule snapshot using the form on the right.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Create Snapshot Form -->
+    <div>
+      <h4>Snapshot Current Schedule</h4>
+      <p class="card-desc">Capture the complete state of the active timetable before making major changes or midterm adjustments.</p>
+
+      <form method="post" action="{{ url_for('version_save') }}" class="stack-form" style="margin-top: 0.75rem;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-group">
+          <label for="v_name">Draft Name</label>
+          <input id="v_name" name="version_name" placeholder="e.g. Draft v1 - Pre-Midterm, Draft v2 - Post-Midterm" required>
+        </div>
+        <div class="form-group">
+          <label for="v_desc">Description / Purpose</label>
+          <input id="v_desc" name="description" placeholder="e.g. Initial allocation before faculty leave reassignments">
+        </div>
+        <div style="background: var(--primary-light); border: 1px solid #bfdbfe; border-radius: var(--radius-md); padding: 0.75rem 1rem; margin-bottom: 0.85rem; font-size: 0.8rem; color: #1e40af;">
+          <strong>Snapshot preview:</strong> Will capture all <strong>{{ current_count }}</strong> classes, lab batch configurations, and room assignments currently in the timetable.
+        </div>
+        <button class="btn btn-primary" type="submit" {% if current_count == 0 %}disabled{% endif %}>
+          Save Draft Snapshot
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

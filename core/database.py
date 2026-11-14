@@ -20,6 +20,8 @@ settings          -> college rules (time slots, working days, limits ...)
 
 import os
 import sqlite3
+import json
+from datetime import datetime
 from werkzeug.security import generate_password_hash
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -121,6 +123,7 @@ CREATE TABLE IF NOT EXISTS timetable (
     course_code  TEXT NOT NULL,
     course_name  TEXT,
     section      TEXT NOT NULL,
+    batch        TEXT DEFAULT 'All',
     day          TEXT NOT NULL,
     time_slot    TEXT NOT NULL,
     room         TEXT NOT NULL
@@ -141,6 +144,59 @@ CREATE TABLE IF NOT EXISTS settings (
     key   TEXT PRIMARY KEY,
     value TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS elective_baskets (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    basket_name  TEXT NOT NULL,
+    course_code  TEXT NOT NULL,
+    course_name  TEXT,
+    sections     TEXT NOT NULL,
+    capacity     INTEGER NOT NULL DEFAULT 60
+);
+CREATE TABLE IF NOT EXISTS long_term_leaves (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    faculty_name TEXT NOT NULL,
+    leave_type   TEXT NOT NULL,
+    start_date   TEXT NOT NULL,
+    end_date     TEXT NOT NULL,
+    status       TEXT NOT NULL DEFAULT 'Active',
+    notes        TEXT
+);
+CREATE TABLE IF NOT EXISTS long_term_covers (
+    id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+    long_term_leave_id INTEGER NOT NULL,
+    timetable_id       INTEGER NOT NULL,
+    cover_faculty_name TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS holidays (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    holiday_date TEXT UNIQUE NOT NULL,
+    name         TEXT NOT NULL,
+    holiday_type TEXT NOT NULL DEFAULT 'Institutional',
+    description  TEXT
+);
+CREATE TABLE IF NOT EXISTS timetable_versions (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    version_name TEXT NOT NULL,
+    description  TEXT,
+    created_at   TEXT NOT NULL,
+    created_by   TEXT DEFAULT 'admin',
+    slot_count   INTEGER NOT NULL DEFAULT 0,
+    data_json    TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS exam_sessions (
+    id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+    exam_date            TEXT NOT NULL,
+    time_slot            TEXT NOT NULL,
+    session_title        TEXT NOT NULL,
+    course_code          TEXT NOT NULL,
+    course_name          TEXT,
+    sections             TEXT NOT NULL,
+    room                 TEXT NOT NULL,
+    primary_supervisor   TEXT NOT NULL,
+    assistant_supervisor TEXT DEFAULT '',
+    total_students       INTEGER DEFAULT 0,
+    notes                TEXT
+);
 """
 
 
@@ -148,6 +204,13 @@ def init_db(seed_demo_data=True):
     """Create tables (if missing) and fill in starting data the first time."""
     conn = get_connection()
     conn.executescript(SCHEMA)
+
+    # Migration: add batch column to timetable table if existing database lacks it
+    try:
+        conn.execute("ALTER TABLE timetable ADD COLUMN batch TEXT DEFAULT 'All'")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass  # Column already exists
 
     # Default settings: only add keys that are not already saved
     for key, value in DEFAULT_SETTINGS.items():
@@ -311,7 +374,7 @@ def set_subjects_of(faculty_name, course_codes):
 # Timetable
 # ---------------------------------------------------------------------------
 TIMETABLE_FIELDS = ["faculty_name", "department", "course_code", "course_name",
-                    "section", "day", "time_slot", "room"]
+                    "section", "batch", "day", "time_slot", "room"]
 
 
 def get_timetable():
@@ -320,26 +383,35 @@ def get_timetable():
     day_order = {d: i for i, d in enumerate(ALL_DAYS)}
     slot_order = {s: i for i, s in enumerate(settings["time_slots"])}
     rows = query("SELECT * FROM timetable")
+    for r in rows:
+        if not r.get("batch"):
+            r["batch"] = "All"
     rows.sort(key=lambda r: (day_order.get(r["day"], 99), slot_order.get(r["time_slot"], 99),
-                             r["section"]))
+                             r["section"], r.get("batch", "All")))
     return rows
 
 
 def get_entry(entry_id):
     rows = query("SELECT * FROM timetable WHERE id = ?", (entry_id,))
+    if rows and not rows[0].get("batch"):
+        rows[0]["batch"] = "All"
     return rows[0] if rows else None
 
 
 def add_entry(entry):
+    if not entry.get("batch"):
+        entry["batch"] = "All"
     values = [str(entry.get(f, "") or "").strip() for f in TIMETABLE_FIELDS]
     return execute("INSERT INTO timetable (faculty_name, department, course_code, course_name, "
-                   "section, day, time_slot, room) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", values)
+                   "section, batch, day, time_slot, room) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", values)
 
 
 def update_entry(entry_id, entry):
+    if not entry.get("batch"):
+        entry["batch"] = "All"
     values = [str(entry.get(f, "") or "").strip() for f in TIMETABLE_FIELDS]
     execute("UPDATE timetable SET faculty_name=?, department=?, course_code=?, course_name=?, "
-            "section=?, day=?, time_slot=?, room=? WHERE id=?", values + [entry_id])
+            "section=?, batch=?, day=?, time_slot=?, room=? WHERE id=?", values + [entry_id])
 
 
 def delete_entry(entry_id):
@@ -389,6 +461,184 @@ def assign_substitute(leave_id, timetable_id, substitute_name):
 def remove_substitute(leave_id, timetable_id):
     execute("DELETE FROM substitutions WHERE leave_id = ? AND timetable_id = ?",
             (leave_id, timetable_id))
+
+
+# ---------------------------------------------------------------------------
+# Open Electives & Cross-Department Baskets
+# ---------------------------------------------------------------------------
+def get_elective_baskets():
+    return query("SELECT * FROM elective_baskets ORDER BY basket_name, course_code")
+
+
+def get_elective_basket(basket_id):
+    rows = query("SELECT * FROM elective_baskets WHERE id = ?", (basket_id,))
+    return rows[0] if rows else None
+
+
+def save_elective_basket(basket_name, course_code, course_name, sections, capacity=60):
+    execute("INSERT INTO elective_baskets (basket_name, course_code, course_name, sections, capacity) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (basket_name.strip(), course_code.strip().upper(), course_name.strip(),
+             sections.strip(), int(capacity)))
+
+
+def delete_elective_basket(basket_id):
+    execute("DELETE FROM elective_baskets WHERE id = ?", (basket_id,))
+
+
+# ---------------------------------------------------------------------------
+# Long-Term Leave & Maternity Cover
+# ---------------------------------------------------------------------------
+def get_long_term_leaves():
+    return query("SELECT * FROM long_term_leaves ORDER BY start_date DESC")
+
+
+def get_long_term_leave(leave_id):
+    rows = query("SELECT * FROM long_term_leaves WHERE id = ?", (leave_id,))
+    return rows[0] if rows else None
+
+
+def add_long_term_leave(faculty_name, leave_type, start_date, end_date, notes=""):
+    return execute("INSERT INTO long_term_leaves (faculty_name, leave_type, start_date, end_date, notes) "
+                   "VALUES (?, ?, ?, ?, ?)",
+                   (faculty_name, leave_type, start_date, end_date, notes.strip()))
+
+
+def delete_long_term_leave(leave_id):
+    execute("DELETE FROM long_term_leaves WHERE id = ?", (leave_id,))
+    execute("DELETE FROM long_term_covers WHERE long_term_leave_id = ?", (leave_id,))
+
+
+def get_long_term_covers():
+    return query("SELECT * FROM long_term_covers")
+
+
+def assign_long_term_cover(long_term_leave_id, timetable_id, cover_faculty_name):
+    execute("DELETE FROM long_term_covers WHERE long_term_leave_id = ? AND timetable_id = ?",
+            (long_term_leave_id, timetable_id))
+    execute("INSERT INTO long_term_covers (long_term_leave_id, timetable_id, cover_faculty_name) "
+            "VALUES (?, ?, ?)", (long_term_leave_id, timetable_id, cover_faculty_name))
+
+
+def remove_long_term_cover(long_term_leave_id, timetable_id):
+    execute("DELETE FROM long_term_covers WHERE long_term_leave_id = ? AND timetable_id = ?",
+            (long_term_leave_id, timetable_id))
+
+
+# ---------------------------------------------------------------------------
+# Holidays & Institutional Calendar
+# ---------------------------------------------------------------------------
+def get_holidays():
+    return query("SELECT * FROM holidays ORDER BY holiday_date ASC")
+
+
+def get_holiday(holiday_date):
+    rows = query("SELECT * FROM holidays WHERE holiday_date = ?", (holiday_date,))
+    return rows[0] if rows else None
+
+
+def add_holiday(holiday_date, name, holiday_type="Institutional", description=""):
+    return execute("INSERT OR REPLACE INTO holidays (holiday_date, name, holiday_type, description) "
+                   "VALUES (?, ?, ?, ?)",
+                   (holiday_date.strip(), name.strip(), holiday_type.strip(), description.strip()))
+
+
+def delete_holiday(holiday_id):
+    execute("DELETE FROM holidays WHERE id = ?", (holiday_id,))
+
+
+# ---------------------------------------------------------------------------
+# Timetable Versioning & Rollback History
+# ---------------------------------------------------------------------------
+def save_timetable_version(version_name, description="", created_by="admin"):
+    """Snapshot the current active timetable into a versioned draft."""
+    slots = get_timetable()
+    data_json = json.dumps(slots)
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    return execute(
+        "INSERT INTO timetable_versions (version_name, description, created_at, created_by, slot_count, data_json) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
+        (version_name.strip(), description.strip(), now_str, created_by.strip(), len(slots), data_json)
+    )
+
+
+def get_timetable_versions():
+    """Return all saved timetable versions ordered by creation time descending."""
+    return query("SELECT id, version_name, description, created_at, created_by, slot_count FROM timetable_versions ORDER BY id DESC")
+
+
+def get_timetable_version(version_id):
+    """Retrieve full version snapshot including deserialized entries."""
+    rows = query("SELECT * FROM timetable_versions WHERE id = ?", (version_id,))
+    if not rows:
+        return None
+    ver = dict(rows[0])
+    try:
+        ver["entries"] = json.loads(ver["data_json"])
+    except Exception:
+        ver["entries"] = []
+    return ver
+
+
+def delete_timetable_version(version_id):
+    execute("DELETE FROM timetable_versions WHERE id = ?", (version_id,))
+
+
+def rollback_timetable_version(version_id):
+    """Restore the timetable to the state captured in the selected version."""
+    ver = get_timetable_version(version_id)
+    if not ver:
+        return False, "Version not found."
+    clear_timetable()
+    for entry in ver["entries"]:
+        add_entry(entry)
+    return True, f"Successfully rolled back timetable to '{ver['version_name']}' ({len(ver['entries'])} classes restored)."
+
+
+# ---------------------------------------------------------------------------
+# Exam Supervision & Multi-Class Cohort Scheduling
+# ---------------------------------------------------------------------------
+def get_exam_sessions():
+    return query("SELECT * FROM exam_sessions ORDER BY exam_date ASC, time_slot ASC, room ASC")
+
+
+def get_exam_session(session_id):
+    rows = query("SELECT * FROM exam_sessions WHERE id = ?", (session_id,))
+    return rows[0] if rows else None
+
+
+def add_exam_session(exam_date, time_slot, session_title, course_code, course_name, sections, room, primary_supervisor, assistant_supervisor="", notes=""):
+    sec_names = [s.strip() for s in sections.split(",") if s.strip()]
+    sec_catalog = {s["name"]: s["strength"] for s in get_sections()}
+    total_students = sum(sec_catalog.get(s, 60) for s in sec_names)
+
+    return execute(
+        "INSERT INTO exam_sessions (exam_date, time_slot, session_title, course_code, course_name, sections, room, primary_supervisor, assistant_supervisor, total_students, notes) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (exam_date.strip(), time_slot.strip(), session_title.strip(), course_code.strip(), course_name.strip(),
+         ", ".join(sec_names), room.strip(), primary_supervisor.strip(), (assistant_supervisor or "").strip(), total_students, (notes or "").strip())
+    )
+
+
+def delete_exam_session(session_id):
+    execute("DELETE FROM exam_sessions WHERE id = ?", (session_id,))
+
+
+def get_supervisor_duty_stats():
+    """Calculate the number of exam duties assigned to each faculty member."""
+    faculty_list = get_faculty_catalog()
+    stats = {f: {"faculty_name": f, "primary_duties": 0, "assistant_duties": 0, "total_duties": 0} for f in faculty_list}
+    for session in get_exam_sessions():
+        p = session.get("primary_supervisor")
+        a = session.get("assistant_supervisor")
+        if p and p in stats:
+            stats[p]["primary_duties"] += 1
+            stats[p]["total_duties"] += 1
+        if a and a in stats:
+            stats[a]["assistant_duties"] += 1
+            stats[a]["total_duties"] += 1
+    return sorted(stats.values(), key=lambda x: (-x["total_duties"], x["faculty_name"]))
+
 
 
 # ---------------------------------------------------------------------------

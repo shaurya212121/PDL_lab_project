@@ -1,0 +1,253 @@
+{% extends "base.html" %}
+{% block title %}Auto-Generate Timetable{% endblock %}
+{% block content %}
+
+{% set p = request.path %}
+<div class="hub-subnav">
+  <span class="hub-subnav-label">Timetable Workspace:</span>
+  <a href="{{ url_for('timetable_page') }}" class="{{ 'active' if p.startswith('/timetable') }}">Table View</a>
+  {% if is_admin %}<a href="{{ url_for('interactive_editor') }}" class="{{ 'active' if p.startswith('/editor') }}">Interactive Visual Editor</a>{% endif %}
+  {% if is_admin %}<a href="{{ url_for('generate_page') }}" class="{{ 'active' if p.startswith('/generate') }}">AI Auto-Generator</a>{% endif %}
+  {% if is_admin %}<a href="{{ url_for('versions_page') }}" class="{{ 'active' if p.startswith('/versions') }}">Draft Versions & Rollback</a>{% endif %}
+</div>
+
+<div class="card">
+  <div class="card-header-flex">
+    <div>
+      <h3>Automated Timetable Generator (CSP Engine)</h3>
+      <p class="card-desc">Automatically generates conflict-free schedules using constraint satisfaction and backtracking with MRV heuristic.
+        Enforces room capacities, lab types, faculty qualifications, and atomic multi-hour lab blocks.</p>
+    </div>
+  </div>
+
+  <div class="grid-2col">
+    <!-- Step 1: Input Requirements -->
+    <div>
+      <h4>1. Define Course Requirements per Section</h4>
+      <p class="muted" style="font-size: 0.85rem; margin-bottom: 0.75rem;">
+        Add course requirements or click "Load Section Defaults" to automatically populate standard requirements from registered subjects.
+      </p>
+
+      <div style="margin-bottom: 1rem; display: flex; gap: 0.5rem;">
+        <button type="button" class="btn btn-secondary-sm" onclick="populateDefaults()">Load Section Defaults</button>
+        <button type="button" class="btn btn-secondary-sm" onclick="clearRequirements()">Clear All</button>
+      </div>
+
+      <form id="generateForm" method="post" action="{{ url_for('generate_run') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="requirements_json" id="requirements_json">
+
+        <div style="margin-bottom: 1rem; background: #f8fafc; padding: 0.75rem; border-radius: 8px; border: 1px solid #e2e8f0;">
+          <label style="font-weight: 600; display: block; margin-bottom: 0.35rem;">Generation Mode:</label>
+          <label class="radio" style="margin-right: 1rem;">
+            <input type="radio" name="mode" value="replace" checked>
+            <strong>Replace</strong> current timetable completely
+          </label>
+          <label class="radio">
+            <input type="radio" name="mode" value="append">
+            <strong>Append</strong> around existing classes (fill gaps)
+          </label>
+        </div>
+
+        <button type="button" class="btn btn-primary" style="width: 100%; padding: 0.75rem;" onclick="submitGeneration()">
+          🚀 Run Constraint Solver & Generate Timetable
+        </button>
+      </form>
+    </div>
+
+    <!-- Step 2: Course Assignment List -->
+    <div>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+        <h4>Course Allocation Queue (<span id="reqCount">0</span>)</h4>
+        <button type="button" class="btn btn-secondary-sm" onclick="showAddReqModal()">+ Add Course Requirement</button>
+      </div>
+
+      <div class="table-responsive" style="max-height: 480px; overflow-y: auto;">
+        <table class="data-table" style="font-size: 0.8rem;">
+          <thead>
+            <tr>
+              <th>Section</th>
+              <th>Course</th>
+              <th>Weekly Hours</th>
+              <th>Block Type</th>
+              <th>Pref. Faculty</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="reqTableBody">
+            <tr id="emptyRow"><td colspan="6" class="muted">No course requirements defined. Click "Load Section Defaults" to begin.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal to add single requirement -->
+<div id="addReqModal" class="card" style="display: none; margin-top: 1.5rem; border: 2px solid #3b82f6;">
+  <h4>➕ Add Specific Course Requirement</h4>
+  <div class="form-row-3" style="margin-top: 0.75rem;">
+    <div class="form-group">
+      <label>Section</label>
+      <select id="m_sec">
+        {% for s in sections %}<option value="{{ s.name }}">{{ s.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Subject</label>
+      <select id="m_sub" onchange="autoSelectDuration()">
+        {% for sub in subjects %}
+          <option value="{{ sub.code }}" data-islab="{{ 1 if sub.is_lab else 0 }}">{{ sub.code }} - {{ sub.name }}{{ ' (Lab)' if sub.is_lab }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Weekly Hours</label>
+      <input type="number" id="m_hours" value="3" min="1" max="10">
+    </div>
+  </div>
+  <div class="form-row-3">
+    <div class="form-group">
+      <label>Block Duration</label>
+      <select id="m_dur">
+        <option value="1">1 Hour (Standard Lecture)</option>
+        <option value="2">2 Hours (Continuous Lab Block)</option>
+        <option value="3">3 Hours (Extended Practical)</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Preferred Faculty (Optional)</label>
+      <select id="m_fac">
+        <option value="">-- Any qualified faculty --</option>
+        {% for f in faculty %}<option value="{{ f.name }}">{{ f.name }} ({{ f.department }})</option>{% endfor %}
+      </select>
+    </div>
+    <div class="form-group" style="align-self: flex-end;">
+      <button type="button" class="btn btn-primary" onclick="addRequirementFromModal()">Add to Queue</button>
+      <button type="button" class="btn btn-secondary-sm" onclick="hideAddReqModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let requirements = [];
+
+const registeredSections = {{ sections|tojson }};
+const registeredSubjects = {{ subjects|tojson }};
+
+function renderReqTable() {
+  const tbody = document.getElementById('reqTableBody');
+  document.getElementById('reqCount').innerText = requirements.length;
+  if (requirements.length === 0) {
+    tbody.innerHTML = '<tr id="emptyRow"><td colspan="6" class="muted">No course requirements defined. Click "Load Section Defaults" to begin.</td></tr>';
+    return;
+  }
+  let html = '';
+  requirements.forEach((r, idx) => {
+    const isLab = r.duration > 1 || (r.course_code && r.course_code.toLowerCase().includes('lab'));
+    html += `
+      <tr>
+        <td><strong>${r.section}</strong></td>
+        <td><code>${r.course_code}</code></td>
+        <td>${r.hours_per_week} hrs/wk</td>
+        <td>
+          <span class="tag-badge ${isLab ? 'purple' : 'blue'}">
+            ${r.duration > 1 ? r.duration + '-hr Continuous Lab' : '1-hr Lecture'}
+          </span>
+        </td>
+        <td>${r.faculty_name || '<span class="muted">Auto-assign</span>'}</td>
+        <td>
+          <button type="button" class="link-btn danger" onclick="removeRequirement(${idx})">✕</button>
+        </td>
+      </tr>
+    `;
+  });
+  tbody.innerHTML = html;
+}
+
+function removeRequirement(idx) {
+  requirements.splice(idx, 1);
+  renderReqTable();
+}
+
+function clearRequirements() {
+  requirements = [];
+  renderReqTable();
+}
+
+function populateDefaults() {
+  requirements = [];
+  registeredSections.forEach(sec => {
+    registeredSubjects.forEach(sub => {
+      // Map subjects belonging to same department or common
+      if (sub.department === sec.department || !sub.department || sub.department === 'General') {
+        requirements.push({
+          section: sec.name,
+          course_code: sub.code,
+          hours_per_week: sub.is_lab ? 2 : 3,
+          duration: sub.is_lab ? 2 : 1,
+          faculty_name: ""
+        });
+      }
+    });
+  });
+  renderReqTable();
+}
+
+function showAddReqModal() {
+  document.getElementById('addReqModal').style.display = 'block';
+  autoSelectDuration();
+}
+
+function hideAddReqModal() {
+  document.getElementById('addReqModal').style.display = 'none';
+}
+
+function autoSelectDuration() {
+  const subSelect = document.getElementById('m_sub');
+  const opt = subSelect.options[subSelect.selectedIndex];
+  const isLab = opt ? opt.getAttribute('data-islab') === '1' : false;
+  if (isLab) {
+    document.getElementById('m_dur').value = '2';
+    document.getElementById('m_hours').value = '2';
+  } else {
+    document.getElementById('m_dur').value = '1';
+    document.getElementById('m_hours').value = '3';
+  }
+}
+
+function addRequirementFromModal() {
+  const sec = document.getElementById('m_sec').value;
+  const sub = document.getElementById('m_sub').value;
+  const hours = parseInt(document.getElementById('m_hours').value, 10) || 3;
+  const dur = parseInt(document.getElementById('m_dur').value, 10) || 1;
+  const fac = document.getElementById('m_fac').value;
+
+  requirements.push({
+    section: sec,
+    course_code: sub,
+    hours_per_week: hours,
+    duration: dur,
+    faculty_name: fac
+  });
+
+  hideAddReqModal();
+  renderReqTable();
+}
+
+function submitGeneration() {
+  if (requirements.length === 0) {
+    alert("Please add at least one course requirement before running the generator.");
+    return;
+  }
+  document.getElementById('requirements_json').value = JSON.stringify(requirements);
+  document.getElementById('generateForm').submit();
+}
+
+// Populate on initial load if empty
+document.addEventListener('DOMContentLoaded', () => {
+  populateDefaults();
+});
+</script>
+
+{% endblock %}

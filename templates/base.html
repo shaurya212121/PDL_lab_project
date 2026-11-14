@@ -42,12 +42,16 @@
     {% set p = request.path %}
     <nav class="nav-links">
       <a href="{{ url_for('home') }}" class="{{ 'active' if p == '/' }}">Dashboard</a>
-      <a href="{{ url_for('timetable_page') }}" class="{{ 'active' if p.startswith('/timetable') }}">Timetable</a>
+      <a href="{{ url_for('timetable_page') }}" class="{{ 'active' if p.startswith('/timetable') or p.startswith('/editor') or p.startswith('/generate') or p.startswith('/versions') }}">Timetable</a>
       <a href="{{ url_for('faculty_page') }}" class="{{ 'active' if p.startswith('/faculty') }}">Faculty</a>
-      <a href="{{ url_for('masters_page') }}" class="{{ 'active' if p.startswith('/setup') }}">Rooms, Sections & Subjects</a>
-      {% if is_admin %}<a href="{{ url_for('leave_page') }}" class="{{ 'active' if p.startswith('/leave') }}">Leave & Substitutes</a>{% endif %}
-      <a href="{{ url_for('reports_page') }}" class="{{ 'active' if p.startswith('/reports') }}">Reports</a>
-      <a href="{{ url_for('print_menu') }}" class="{{ 'active' if p.startswith('/print') }}">Print</a>
+      <a href="{{ url_for('masters_page') }}" class="{{ 'active' if p.startswith('/setup') }}">Rooms & Subjects</a>
+      {% if is_admin %}
+        <a href="{{ url_for('leave_page') }}" class="{{ 'active' if p.startswith('/leave') or p.startswith('/holidays') }}">Leave & Calendar</a>
+      {% else %}
+        <a href="{{ url_for('holidays_page') }}" class="{{ 'active' if p.startswith('/holidays') }}">Holidays</a>
+      {% endif %}
+      <a href="{{ url_for('exams_page') }}" class="{{ 'active' if p.startswith('/exams') }}">Exam Supervision</a>
+      <a href="{{ url_for('reports_page') }}" class="{{ 'active' if p.startswith('/reports') or p.startswith('/print') }}">Reports & Print</a>
       {% if is_admin %}<a href="{{ url_for('settings_page') }}" class="{{ 'active' if p.startswith('/settings') }}">Settings</a>{% endif %}
     </nav>
   </header>

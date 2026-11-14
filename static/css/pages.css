@@ -18,9 +18,50 @@ hr { border: none; border-top: 1px solid var(--border-color); margin: 1.25rem 0;
 .nav-links a {
   text-decoration: none; color: var(--text-muted); font-weight: 600; font-size: 0.85rem;
   padding: 0.45rem 0.8rem; border-radius: var(--radius-sm);
+  transition: all 0.15s ease;
 }
 .nav-links a:hover { background: var(--bg-main); color: var(--text-main); }
 .nav-links a.active { background: var(--primary-light); color: var(--primary); }
+
+/* Sub Navigation / Hub Switcher */
+.hub-subnav {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  background: #ffffff;
+  padding: 0.5rem 0.85rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  margin-bottom: 1.25rem;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+  flex-wrap: wrap;
+}
+.hub-subnav-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-right: 0.25rem;
+  letter-spacing: 0.03em;
+}
+.hub-subnav a {
+  text-decoration: none;
+  font-size: 0.825rem;
+  font-weight: 600;
+  padding: 0.4rem 0.85rem;
+  border-radius: var(--radius-sm);
+  color: #475569;
+  transition: all 0.15s ease;
+}
+.hub-subnav a:hover {
+  background: var(--bg-main);
+  color: var(--text-main);
+}
+.hub-subnav a.active {
+  background: var(--primary);
+  color: #ffffff;
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+}
 
 /* Messages */
 .flash {

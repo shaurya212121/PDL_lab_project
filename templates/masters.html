@@ -100,4 +100,38 @@
   </form>
   {% endif %}
 </div>
+
+<!-- Open Elective Baskets (Cross-Department CBCS) -->
+<div class="card" id="electives">
+  <h3>Open Elective Baskets (CBCS Cross-Department)</h3>
+  <p class="card-desc">Group elective subjects where students from multiple departments attend together. ClashAudit checks cross-department student section collisions for all enrolled batches.</p>
+  <div class="table-responsive">
+    <table class="data-table">
+      <thead><tr><th>Basket Name</th><th>Course Code</th><th>Course Name</th><th>Participating Sections</th><th>Seat Cap</th><th></th></tr></thead>
+      <tbody>
+        {% for b in baskets %}
+        <tr>
+          <td><strong>{{ b.basket_name }}</strong></td>
+          <td><code>{{ b.course_code }}</code></td>
+          <td>{{ b.course_name }}</td>
+          <td><span class="tag-badge blue">{{ b.sections }}</span></td>
+          <td>{{ b.capacity }}</td>
+          <td class="actions">{% if is_admin %}{{ delete_button(url_for('basket_delete', basket_id=b.id), b.basket_name) }}{% endif %}</td>
+        </tr>
+        {% else %}<tr><td colspan="6" class="muted">No elective baskets configured yet.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if is_admin %}
+  <form method="post" action="{{ url_for('basket_save') }}" class="inline-add" style="margin-top: 1rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input name="basket_name" placeholder="Basket (e.g. Open Elective I)" required aria-label="Basket Name">
+    <input name="course_code" placeholder="Course Code (e.g. OE301)" required aria-label="Course Code">
+    <input name="course_name" placeholder="Course Name (e.g. Machine Learning for Engineers)" aria-label="Course Name">
+    <input name="sections" placeholder="Sections (e.g. CSE-A, IT-A, MECH-A)" required aria-label="Sections">
+    <input type="number" name="capacity" value="60" style="width: 80px;" aria-label="Capacity">
+    <button class="btn btn-primary btn-sm" type="submit">Add Elective Basket</button>
+  </form>
+  {% endif %}
+</div>
 {% endblock %}

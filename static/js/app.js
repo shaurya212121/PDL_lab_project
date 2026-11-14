@@ -213,7 +213,7 @@ function renderStressResult(data) {
   const badge = document.getElementById('stressBadge');
   const looks = {
     2: ['red', '⚠️ HIGH BURNOUT RISK (OVERLOADED)'],
-    0: ['amber', '⚡ UNDERLOADED / SPARE CAPACITY'],
+    0: ['amber', 'UNDERLOADED / SPARE CAPACITY'],
     1: ['green', '✅ BALANCED WORKLOAD']
   }[data.prediction_code];
   badge.className = `stress-badge tag-badge ${looks[0]}`;

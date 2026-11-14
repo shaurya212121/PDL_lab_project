@@ -12,6 +12,7 @@ import io
 import os
 import json
 import secrets
+from collections import defaultdict
 from datetime import date
 from functools import wraps
 
@@ -24,8 +25,11 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from core import database as db
 from core import file_io, reports
 from core.conflict_detector import ConflictDetector
+from core.generator import TimetableGenerator
 from core.scenarios import SCENARIOS
 from core.substitutes import classes_missed, substitute_options, weekday_of
+from core.versioning import diff_timetables
+from core import exam_scheduler
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(BASE_DIR, "model", "workload_model.joblib")
@@ -97,6 +101,7 @@ def make_detector():
         subjects=db.get_subjects(),
         faculty_subjects=db.get_faculty_subjects(),
         settings=db.get_settings(),
+        elective_baskets=db.get_elective_baskets(),
     )
 
 
@@ -173,6 +178,7 @@ def entry_from_form():
         "course_name": subject.get("name", request.form.get("course_name", "")),
         "department": subject.get("department") or faculty_info.get("department", "General"),
         "section": request.form.get("section", "").strip(),
+        "batch": request.form.get("batch", "All").strip() or "All",
         "day": request.form.get("day", "").strip(),
         "time_slot": request.form.get("time_slot", "").strip(),
         "room": request.form.get("room", "").strip(),
@@ -291,10 +297,54 @@ def timetable_add():
                 entry["day"], entry["time_slot"], entry["room"]]):
         flash("Please fill in every field.", "error")
         return redirect(url_for("timetable_page"))
-    new_id = db.add_entry(entry)
-    if not flash_conflicts_for(new_id):
-        flash(f"Added {entry['course_code']} ({entry['section']}) on {entry['day']} {entry['time_slot']}. "
-              f"No conflicts.", "success")
+
+    duration = form_int("duration", 1)
+    if duration <= 1:
+        new_id = db.add_entry(entry)
+        if not flash_conflicts_for(new_id):
+            flash(f"Added {entry['course_code']} ({entry['section']}) on {entry['day']} {entry['time_slot']}. "
+                  f"No conflicts.", "success")
+    else:
+        # Multi-hour continuous block: find consecutive slots
+        settings = db.get_settings()
+        time_slots = settings.get("time_slots", [])
+        lunch_after = settings.get("lunch_after", "")
+        start_slot = entry["time_slot"]
+        if start_slot not in time_slots:
+            flash(f"Invalid starting time slot '{start_slot}'.", "error")
+            return redirect(url_for("timetable_page"))
+
+        start_idx = time_slots.index(start_slot)
+        if start_idx + duration > len(time_slots):
+            flash(f"Cannot schedule a {duration}-hour block starting at {start_slot}: exceeds daily schedule.", "error")
+            return redirect(url_for("timetable_page"))
+
+        consecutive_slots = time_slots[start_idx:start_idx + duration]
+        # Check if lunch break is crossed inside the block
+        crosses_lunch = False
+        for s in consecutive_slots[:-1]:
+            if s == lunch_after:
+                crosses_lunch = True
+                break
+        if crosses_lunch:
+            flash(f"A {duration}-hour continuous block cannot cross the lunch break ({lunch_after}).", "error")
+            return redirect(url_for("timetable_page"))
+
+        added_ids = []
+        for s in consecutive_slots:
+            slot_entry = dict(entry)
+            slot_entry["time_slot"] = s
+            added_ids.append(db.add_entry(slot_entry))
+
+        any_problems = False
+        for eid in added_ids:
+            if flash_conflicts_for(eid):
+                any_problems = True
+
+        if not any_problems:
+            flash(f"Added {duration}-hour block for {entry['course_code']} ({entry['section']}) on {entry['day']} "
+                  f"({consecutive_slots[0]} to {consecutive_slots[-1]}). No conflicts.", "success")
+
     return redirect(url_for("timetable_page"))
 
 
@@ -357,6 +407,137 @@ def timetable_import():
         flash(f"{len(errors)} row(s) skipped: " + " | ".join(errors[:5])
               + (" ..." if len(errors) > 5 else ""), "warning")
     return redirect(url_for("timetable_page"))
+
+
+# ---------------------------------------------------------------------------
+# Automated Timetable Generator (CSP / Backtracking)
+# ---------------------------------------------------------------------------
+@app.route("/generate")
+@login_required
+def generate_page():
+    return render_template("generate.html", sections=db.get_sections(),
+                           subjects=db.get_subjects(), faculty=db.get_faculty(),
+                           rooms=db.get_rooms())
+
+
+@app.route("/generate/run", methods=["POST"])
+@login_required
+def generate_run():
+    reqs_json = request.form.get("requirements_json", "[]")
+    mode = request.form.get("mode", "replace")
+    try:
+        requirements = json.loads(reqs_json)
+    except Exception as e:
+        flash(f"Invalid requirements format: {e}", "error")
+        return redirect(url_for("generate_page"))
+
+    if not requirements:
+        flash("No course requirements provided to generate timetable.", "error")
+        return redirect(url_for("generate_page"))
+
+    # Instantiate the CSP solver
+    generator = TimetableGenerator(
+        faculty=db.get_faculty(),
+        rooms=db.get_rooms(),
+        sections=db.get_sections(),
+        subjects=db.get_subjects(),
+        faculty_subjects=db.get_faculty_subjects(),
+        settings=db.get_settings()
+    )
+
+    existing = db.get_timetable() if mode == "append" else []
+    success, schedule, stats = generator.generate(requirements, existing_schedule=existing)
+
+    if not success and not schedule:
+        flash(f"Generation failed: constraints could not be satisfied. Tried {stats.get('backtracks', 0)} backtracks.", "error")
+        return redirect(url_for("generate_page"))
+
+    # Apply generated timetable
+    if mode == "replace":
+        db.clear_timetable()
+        to_insert = schedule
+    else:
+        # Only insert new classes
+        existing_ids = {e.get("id") for e in existing if e.get("id")}
+        to_insert = [e for e in schedule if e.get("id") not in existing_ids]
+
+    for entry in to_insert:
+        db.add_entry(entry)
+
+    msg = f"Generated {len(to_insert)} classes successfully across departments! ({stats.get('backtracks', 0)} backtracks)."
+    if not success:
+        msg = f"Partial schedule generated: {len(to_insert)} classes placed. Some constraints could not be fitted."
+        flash(msg, "warning")
+    else:
+        flash(msg, "success")
+
+    return redirect(url_for("timetable_page"))
+
+
+# ---------------------------------------------------------------------------
+# Interactive Visual Timetable Editor
+# ---------------------------------------------------------------------------
+@app.route("/editor")
+@login_required
+def interactive_editor():
+    timetable, report = run_analysis()
+    settings = db.get_settings()
+    working_days = settings.get("working_days", [])
+    selected_day = request.args.get("day", working_days[0] if working_days else "Monday")
+    group_by = request.args.get("group_by", "sections")
+
+    # Clashed entry IDs for visual red highlight
+    clashed_ids = set()
+    for c in report["conflicts_list"]:
+        if c["severity"] == "CRITICAL":
+            for eid in c.get("involved_entries", []):
+                clashed_ids.add(eid)
+
+    # Determine columns based on grouping
+    if group_by == "sections":
+        columns = [s["name"] for s in db.get_sections()]
+    else:
+        columns = [r["name"] for r in db.get_rooms()]
+
+    # Grid map: (time_slot, col_name) -> list of entries
+    grid = defaultdict(list)
+    for e in timetable:
+        if e["day"] == selected_day:
+            col_val = e["section"] if group_by == "sections" else e["room"]
+            grid[(e["time_slot"], col_val)].append(e)
+
+    return render_template("editor.html", selected_day=selected_day, group_by=group_by,
+                           columns=columns, grid=grid, clashed_ids=clashed_ids,
+                           faculty=db.get_faculty(), rooms=db.get_rooms(),
+                           sections=db.get_sections(), subjects=db.get_subjects(),
+                           settings=settings)
+
+
+@app.route("/editor/save", methods=["POST"])
+@login_required
+def interactive_editor_save():
+    eid = form_int("entry_id")
+    entry = db.get_entry(eid)
+    if not entry:
+        flash("Class not found.", "error")
+        return redirect(url_for("interactive_editor"))
+
+    updated = {
+        "faculty_name": request.form.get("faculty_name", entry["faculty_name"]),
+        "course_code": entry["course_code"],
+        "course_name": entry.get("course_name", ""),
+        "department": entry.get("department", ""),
+        "section": request.form.get("section", entry["section"]),
+        "batch": request.form.get("batch", entry.get("batch", "All")),
+        "day": request.form.get("day", entry["day"]),
+        "time_slot": request.form.get("time_slot", entry["time_slot"]),
+        "room": request.form.get("room", entry["room"]),
+    }
+
+    db.update_entry(eid, updated)
+    flash_conflicts_for(eid)
+    flash("Updated class allocation.", "success")
+    return redirect(url_for("interactive_editor", day=updated["day"], group_by=request.args.get("group_by", "sections")))
 
 
 # ---------------------------------------------------------------------------
@@ -448,7 +629,8 @@ def masters_page():
     teachers = db.get_faculty_subjects()
     return render_template("masters.html", rooms=db.get_rooms(), sections=db.get_sections(),
                            subjects=db.get_subjects(), teachers=teachers, room_types=db.ROOM_TYPES,
-                           departments=db.get_departments())
+                           departments=db.get_departments(),
+                           baskets=db.get_elective_baskets())
 
 
 def used_in_timetable(column, value):
@@ -530,6 +712,30 @@ def subject_delete(code):
     return redirect(url_for("masters_page") + "#subjects")
 
 
+@app.route("/baskets/save", methods=["POST"])
+@login_required
+def basket_save():
+    b_name = request.form.get("basket_name", "").strip()
+    c_code = request.form.get("course_code", "").strip().upper()
+    c_name = request.form.get("course_name", "").strip()
+    secs = request.form.get("sections", "").strip()
+    cap = form_int("capacity", 60)
+    if not b_name or not c_code or not secs:
+        flash("Basket name, course code, and eligible sections are required.", "error")
+    else:
+        db.save_elective_basket(b_name, c_code, c_name, secs, cap)
+        flash(f"Saved Open Elective Basket '{b_name}' for {c_code}.", "success")
+    return redirect(url_for("masters_page") + "#electives")
+
+
+@app.route("/baskets/delete/<int:basket_id>", methods=["POST"])
+@login_required
+def basket_delete(basket_id):
+    db.delete_elective_basket(basket_id)
+    flash("Removed elective basket.", "success")
+    return redirect(url_for("masters_page") + "#electives")
+
+
 # ---------------------------------------------------------------------------
 # Leave & substitutes
 # ---------------------------------------------------------------------------
@@ -559,8 +765,64 @@ def leave_page():
         upcoming.append(lv)
     upcoming.sort(key=lambda lv: lv["leave_date"])
 
+    # Long-term / Maternity cover plans
+    long_term_leaves = db.get_long_term_leaves()
+    long_term_covers = db.get_long_term_covers()
+    lt_assigned = {(c["long_term_leave_id"], c["timetable_id"]): c["cover_faculty_name"] for c in long_term_covers}
+
+    faculty_list = db.get_faculty()
+    faculty_catalog = db.get_faculty_catalog()
+
+    # Pre-calculate workload and availability for long-term cover options
+    weekly_load = defaultdict(int)
+    for e in timetable:
+        weekly_load[e["faculty_name"]] += 1
+
+    for ltl in long_term_leaves:
+        f_name = ltl["faculty_name"]
+        own_classes = [e for e in timetable if e["faculty_name"] == f_name]
+        ltl["recurring_classes"] = []
+
+        for entry in own_classes:
+            assigned_cover = lt_assigned.get((ltl["id"], entry["id"]))
+            # Eligible colleagues: same department or qualified, free at that day+slot, below weekly limit
+            eligible_covers = []
+            for f in faculty_list:
+                cand_name = f["name"]
+                if cand_name == f_name:
+                    continue
+                cand_info = faculty_catalog.get(cand_name, {})
+                cand_dept = cand_info.get("department")
+                cur_load = weekly_load[cand_name]
+                max_h = cand_info.get("max_hours", 16)
+
+                # Check if free at this recurring slot
+                slot_free = not any(
+                    e["faculty_name"] == cand_name and e["day"] == entry["day"] and e["time_slot"] == entry["time_slot"]
+                    for e in timetable
+                )
+
+                if slot_free and cur_load < max_h:
+                    is_qual = detector.can_teach(cand_name, entry.get("course_code"))
+                    eligible_covers.append({
+                        "name": cand_name,
+                        "department": cand_dept,
+                        "current_hours": cur_load,
+                        "max_hours": max_h,
+                        "qualified": is_qual
+                    })
+
+            # Sort eligible covers: qualified first, then least loaded
+            eligible_covers.sort(key=lambda c: (0 if c["qualified"] else 1, c["current_hours"]))
+
+            ltl["recurring_classes"].append({
+                "entry": entry,
+                "assigned_cover": assigned_cover,
+                "eligible_covers": eligible_covers
+            })
+
     return render_template("leave.html", upcoming=upcoming, past=past, today=today,
-                           faculty=db.get_faculty())
+                           faculty=faculty_list, long_term_leaves=long_term_leaves)
 
 
 @app.route("/leave/add", methods=["POST"])
@@ -575,6 +837,9 @@ def leave_add():
         return redirect(url_for("leave_page"))
     if name not in db.get_faculty_catalog():
         flash("Please choose a faculty member.", "error")
+    elif db.get_holiday(leave_date):
+        h = db.get_holiday(leave_date)
+        flash(f"{leave_date} is already an institutional holiday ({h['name']}). All classes are suspended; no leave required.", "warning")
     elif db.query("SELECT id FROM leaves WHERE faculty_name = ? AND leave_date = ?", (name, leave_date)):
         flash(f"{name} is already marked on leave on {leave_date}.", "warning")
     else:
@@ -612,6 +877,273 @@ def leave_unassign(leave_id, timetable_id):
     db.remove_substitute(leave_id, timetable_id)
     flash("Substitute removed.", "success")
     return redirect(url_for("leave_page") + f"#leave-{leave_id}")
+
+
+# ---------------------------------------------------------------------------
+# Long-Term Leave & Maternity Cover Actions
+# ---------------------------------------------------------------------------
+@app.route("/leave/long-term/add", methods=["POST"])
+@login_required
+def long_term_leave_add():
+    faculty_name = request.form.get("faculty_name", "")
+    leave_type = request.form.get("leave_type", "Maternity Leave")
+    start_date = request.form.get("start_date", "")
+    end_date = request.form.get("end_date", "")
+    notes = request.form.get("notes", "")
+
+    if not faculty_name or not start_date or not end_date:
+        flash("Faculty, start date, and end date are required.", "error")
+        return redirect(url_for("leave_page"))
+
+    if start_date > end_date:
+        flash("Start date must be before end date.", "error")
+        return redirect(url_for("leave_page"))
+
+    new_id = db.add_long_term_leave(faculty_name, leave_type, start_date, end_date, notes)
+    flash(f"Created {leave_type} cover plan for {faculty_name} ({start_date} to {end_date}). Assign designated cover faculty below.", "success")
+    return redirect(url_for("leave_page"))
+
+
+@app.route("/leave/long-term/delete/<int:leave_id>", methods=["POST"])
+@login_required
+def long_term_leave_delete(leave_id):
+    db.delete_long_term_leave(leave_id)
+    flash("Long-term leave cover plan deleted.", "success")
+    return redirect(url_for("leave_page"))
+
+
+@app.route("/leave/long-term/<int:leave_id>/assign", methods=["POST"])
+@login_required
+def long_term_assign(leave_id):
+    timetable_id = form_int("timetable_id")
+    cover_faculty = request.form.get("cover_faculty", "")
+    if not cover_faculty:
+        flash("Please select a cover faculty member.", "error")
+    else:
+        db.assign_long_term_cover(leave_id, timetable_id, cover_faculty)
+        flash(f"Assigned {cover_faculty} as recurring cover for this course.", "success")
+    return redirect(url_for("leave_page"))
+
+
+@app.route("/leave/long-term/<int:leave_id>/unassign/<int:timetable_id>", methods=["POST"])
+@login_required
+def long_term_unassign(leave_id, timetable_id):
+    db.remove_long_term_cover(leave_id, timetable_id)
+    flash("Cover assignment removed.", "success")
+    return redirect(url_for("leave_page"))
+
+
+# ---------------------------------------------------------------------------
+# Institutional Holidays & Academic Calendar
+# ---------------------------------------------------------------------------
+@app.route("/holidays")
+def holidays_page():
+    return render_template("holidays.html", holidays=db.get_holidays(),
+                           today=date.today().isoformat())
+
+
+@app.route("/holidays/add", methods=["POST"])
+@login_required
+def holiday_add():
+    h_date = request.form.get("holiday_date", "").strip()
+    name = request.form.get("name", "").strip()
+    h_type = request.form.get("holiday_type", "Institutional").strip()
+    desc = request.form.get("description", "").strip()
+
+    if not h_date or not name:
+        flash("Date and holiday name are required.", "error")
+    else:
+        db.add_holiday(h_date, name, h_type, desc)
+        flash(f"Declared institutional holiday '{name}' on {h_date}.", "success")
+    return redirect(url_for("holidays_page"))
+
+
+@app.route("/holidays/delete/<int:holiday_id>", methods=["POST"])
+@login_required
+def holiday_delete(holiday_id):
+    db.delete_holiday(holiday_id)
+    flash("Holiday removed.", "success")
+    return redirect(url_for("holidays_page"))
+
+
+# ---------------------------------------------------------------------------
+# Timetable Versioning & Rollback History
+# ---------------------------------------------------------------------------
+@app.route("/versions")
+def versions_page():
+    versions = db.get_timetable_versions()
+    current_slots = db.get_timetable()
+    return render_template("versions.html", versions=versions, current_count=len(current_slots))
+
+
+@app.route("/versions/save", methods=["POST"])
+@login_required
+def version_save():
+    name = request.form.get("version_name", "").strip()
+    desc = request.form.get("description", "").strip()
+    if not name:
+        flash("Draft name is required (e.g., 'Draft v1 - Pre-Midterm').", "error")
+        return redirect(url_for("versions_page"))
+
+    current_slots = db.get_timetable()
+    if not current_slots:
+        flash("Cannot save draft of an empty timetable.", "warning")
+        return redirect(url_for("versions_page"))
+
+    user = session.get("user", "admin")
+    vid = db.save_timetable_version(name, desc, created_by=user)
+    flash(f"Successfully saved draft '{name}' ({len(current_slots)} classes).", "success")
+    return redirect(url_for("versions_page"))
+
+
+@app.route("/versions/<int:version_id>/diff")
+def version_diff(version_id):
+    ver = db.get_timetable_version(version_id)
+    if not ver:
+        flash("Draft version not found.", "error")
+        return redirect(url_for("versions_page"))
+
+    compare_to_id = request.args.get("compare_to")
+    other_version = None
+    if compare_to_id and compare_to_id.isdigit():
+        other_version = db.get_timetable_version(int(compare_to_id))
+
+    if other_version:
+        compare_target_name = other_version["version_name"]
+        target_slots = other_version["entries"]
+    else:
+        compare_target_name = "Current Active Timetable"
+        target_slots = db.get_timetable()
+
+    diff_result = diff_timetables(ver["entries"], target_slots)
+    all_versions = db.get_timetable_versions()
+
+    return render_template("version_diff.html",
+                           version=ver,
+                           target_name=compare_target_name,
+                           other_version=other_version,
+                           all_versions=all_versions,
+                           diff=diff_result)
+
+
+@app.route("/versions/<int:version_id>/rollback", methods=["POST"])
+@login_required
+def version_rollback(version_id):
+    current_slots = db.get_timetable()
+    if current_slots:
+        now_str = date.today().isoformat()
+        db.save_timetable_version(f"Auto-Backup before Rollback ({now_str})",
+                                  description="Created automatically prior to restoring older draft",
+                                  created_by=session.get("user", "system"))
+
+    success, msg = db.rollback_timetable_version(version_id)
+    if success:
+        flash(msg, "success")
+    else:
+        flash(msg, "error")
+    return redirect(url_for("timetable_page"))
+
+
+@app.route("/versions/<int:version_id>/delete", methods=["POST"])
+@login_required
+def version_delete(version_id):
+    db.delete_timetable_version(version_id)
+    flash("Timetable draft deleted.", "success")
+    return redirect(url_for("versions_page"))
+
+
+# ---------------------------------------------------------------------------
+# Exam Supervision & Multi-Class Cohort Scheduling
+# ---------------------------------------------------------------------------
+@app.route("/exams")
+def exams_page():
+    sessions = db.get_exam_sessions()
+    conflict_report = exam_scheduler.check_exam_conflicts(sessions)
+    duty_summary = exam_scheduler.get_invigilation_roster_stats()
+
+    faculty_list = db.get_faculty_catalog()
+    rooms_list = db.get_rooms()
+    sections_list = db.get_sections()
+    subjects_list = db.get_subjects()
+
+    return render_template("exams.html",
+                           sessions=sessions,
+                           conflicts=conflict_report,
+                           duty_summary=duty_summary,
+                           faculty=faculty_list,
+                           rooms=rooms_list,
+                           sections=sections_list,
+                           subjects=subjects_list,
+                           today=date.today().isoformat())
+
+
+@app.route("/exams/add", methods=["POST"])
+@login_required
+def exam_add():
+    exam_date = request.form.get("exam_date", "").strip()
+    time_slot = request.form.get("time_slot", "").strip()
+    session_title = request.form.get("session_title", "").strip()
+    course_code = request.form.get("course_code", "").strip()
+    room = request.form.get("room", "").strip()
+    primary_supervisor = request.form.get("primary_supervisor", "").strip()
+    assistant_supervisor = request.form.get("assistant_supervisor", "").strip()
+    notes = request.form.get("notes", "").strip()
+
+    selected_sections = request.form.getlist("sections")
+    if not selected_sections:
+        manual_sections = request.form.get("manual_sections", "").strip()
+        if manual_sections:
+            selected_sections = [s.strip() for s in manual_sections.split(",") if s.strip()]
+
+    if not exam_date or not time_slot or not course_code or not room or not primary_supervisor:
+        flash("Date, time slot, course, room, and primary supervisor are required.", "error")
+        return redirect(url_for("exams_page"))
+
+    if not selected_sections:
+        flash("Please select at least one student section to examine.", "error")
+        return redirect(url_for("exams_page"))
+
+    sub_lookup = {s["code"]: s["name"] for s in db.get_subjects()}
+    course_name = sub_lookup.get(course_code, "")
+
+    sec_string = ", ".join(selected_sections)
+
+    db.add_exam_session(
+        exam_date=exam_date,
+        time_slot=time_slot,
+        session_title=session_title or "Semester Examination",
+        course_code=course_code,
+        course_name=course_name,
+        sections=sec_string,
+        room=room,
+        primary_supervisor=primary_supervisor,
+        assistant_supervisor=assistant_supervisor,
+        notes=notes
+    )
+
+    flash(f"Scheduled exam '{course_code}' in {room} for pooled sections [{sec_string}].", "success")
+    return redirect(url_for("exams_page"))
+
+
+@app.route("/exams/delete/<int:session_id>", methods=["POST"])
+@login_required
+def exam_delete(session_id):
+    db.delete_exam_session(session_id)
+    flash("Exam session deleted.", "success")
+    return redirect(url_for("exams_page"))
+
+
+@app.route("/exams/print")
+def exam_print():
+    sessions = db.get_exam_sessions()
+    duty_summary = exam_scheduler.get_invigilation_roster_stats()
+    college_name = db.get_settings().get("college_name", "Academic Institution")
+    return render_template("exam_print.html",
+                           sessions=sessions,
+                           duty_summary=duty_summary,
+                           college_name=college_name,
+                           today=date.today().isoformat())
+
 
 
 # ---------------------------------------------------------------------------

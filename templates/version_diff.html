@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+{% block title %}Visual Diff: {{ version.version_name }} vs {{ target_name }}{% endblock %}
+{% block content %}
+
+{% set p = request.path %}
+<div class="hub-subnav">
+  <span class="hub-subnav-label">Timetable Workspace:</span>
+  <a href="{{ url_for('timetable_page') }}" class="{{ 'active' if p.startswith('/timetable') }}">Table View</a>
+  {% if is_admin %}<a href="{{ url_for('interactive_editor') }}" class="{{ 'active' if p.startswith('/editor') }}">Interactive Visual Editor</a>{% endif %}
+  {% if is_admin %}<a href="{{ url_for('generate_page') }}" class="{{ 'active' if p.startswith('/generate') }}">AI Auto-Generator</a>{% endif %}
+  {% if is_admin %}<a href="{{ url_for('versions_page') }}" class="{{ 'active' if p.startswith('/versions') }}">Draft Versions & Rollback</a>{% endif %}
+</div>
+
+<div class="card">
+  <div class="card-header-flex">
+    <div>
+      <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+        <a href="{{ url_for('versions_page') }}" class="muted" style="text-decoration: none; font-size: 0.85rem;">&larr; Back to Drafts</a>
+        <span class="muted">/</span>
+        <span class="tag-badge purple">Visual Difference View</span>
+      </div>
+      <h3>Comparing: <code>{{ version.version_name }}</code> vs <code>{{ target_name }}</code></h3>
+      <p class="card-desc">Side-by-side inspection of added, removed, and modified class allocations between timetable milestones.</p>
+    </div>
+
+    <div style="display: flex; gap: 0.5rem; align-items: center;">
+      <!-- Compare selector -->
+      <form method="get" action="{{ url_for('version_diff', version_id=version.id) }}" style="display: flex; gap: 0.4rem; align-items: center;">
+        <label for="compare_to" class="muted" style="font-size: 0.8rem;">Compare vs:</label>
+        <select id="compare_to" name="compare_to" onchange="this.form.submit()" style="padding: 0.35rem 0.6rem; font-size: 0.82rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+          <option value="" {% if not other_version %}selected{% endif %}>Current Active Timetable</option>
+          {% for ov in all_versions if ov.id != version.id %}
+            <option value="{{ ov.id }}" {% if other_version and other_version.id == ov.id %}selected{% endif %}>
+              Draft: {{ ov.version_name }}
+            </option>
+          {% endfor %}
+        </select>
+      </form>
+
+      <!-- Rollback Button -->
+      {% if is_admin %}
+      <form method="post" action="{{ url_for('version_rollback', version_id=version.id) }}"
+            data-confirm="Rollback to '{{ version.version_name }}'? This will immediately restore this draft's schedule as the active timetable.">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-primary btn-sm" type="submit" style="padding: 0.45rem 1rem;">
+          Rollback to this Draft
+        </button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Summary Metric Badges -->
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.85rem; margin-top: 1.25rem;">
+    <div class="stat-card" style="padding: 0.75rem 1rem; border-left: 4px solid var(--primary);">
+      <div class="muted" style="font-size: 0.75rem; text-transform: uppercase;">Total Changes</div>
+      <div style="font-size: 1.4rem; font-weight: 800; color: var(--text-main);">{{ diff.summary.total_changes }}</div>
+    </div>
+    <div class="stat-card" style="padding: 0.75rem 1rem; border-left: 4px solid var(--success);">
+      <div class="muted" style="font-size: 0.75rem; text-transform: uppercase;">Added Slots</div>
+      <div style="font-size: 1.4rem; font-weight: 800; color: var(--success);">+{{ diff.summary.added }}</div>
+    </div>
+    <div class="stat-card" style="padding: 0.75rem 1rem; border-left: 4px solid var(--danger);">
+      <div class="muted" style="font-size: 0.75rem; text-transform: uppercase;">Removed Slots</div>
+      <div style="font-size: 1.4rem; font-weight: 800; color: var(--danger);">-{{ diff.summary.removed }}</div>
+    </div>
+    <div class="stat-card" style="padding: 0.75rem 1rem; border-left: 4px solid var(--warning);">
+      <div class="muted" style="font-size: 0.75rem; text-transform: uppercase;">Modified Slots</div>
+      <div style="font-size: 1.4rem; font-weight: 800; color: var(--warning);">~{{ diff.summary.modified }}</div>
+    </div>
+    <div class="stat-card" style="padding: 0.75rem 1rem; border-left: 4px solid #94a3b8;">
+      <div class="muted" style="font-size: 0.75rem; text-transform: uppercase;">Identical Slots</div>
+      <div style="font-size: 1.4rem; font-weight: 800; color: var(--text-muted);">={{ diff.summary.unchanged }}</div>
+    </div>
+  </div>
+
+  <!-- Interactive Filter Controls -->
+  <div style="margin-top: 1.25rem; display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+    <span class="muted" style="font-size: 0.8rem; font-weight: 600;">Filter:</span>
+    <button type="button" class="btn btn-secondary-sm active-filter" onclick="filterDiff('all', this)">All Slots ({{ diff.diffs|length }})</button>
+    <button type="button" class="btn btn-secondary-sm" onclick="filterDiff('changed', this)">Changes Only ({{ diff.summary.total_changes }})</button>
+    <button type="button" class="btn btn-secondary-sm" onclick="filterDiff('added', this)">Added (+{{ diff.summary.added }})</button>
+    <button type="button" class="btn btn-secondary-sm" onclick="filterDiff('removed', this)">Removed (-{{ diff.summary.removed }})</button>
+    <button type="button" class="btn btn-secondary-sm" onclick="filterDiff('modified', this)">Modified (~{{ diff.summary.modified }})</button>
+    <button type="button" class="btn btn-secondary-sm" onclick="filterDiff('unchanged', this)">Unchanged (={{ diff.summary.unchanged }})</button>
+  </div>
+
+  <!-- Side-by-Side Difference Table -->
+  <div class="table-responsive" style="margin-top: 1rem; max-height: 700px; overflow-y: auto;">
+    <table class="data-table" id="diff-table">
+      <thead>
+        <tr>
+          <th style="width: 180px;">Time & Section</th>
+          <th style="width: 32%;">
+            <strong>Draft: {{ version.version_name }}</strong>
+            <span class="muted" style="font-size: 0.75rem;">(Snapshot)</span>
+          </th>
+          <th style="width: 140px; text-align: center;">Status & Delta</th>
+          <th style="width: 32%;">
+            <strong>{{ target_name }}</strong>
+            <span class="muted" style="font-size: 0.75rem;">(Comparison Target)</span>
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in diff.diffs %}
+        <tr class="diff-row diff-type-{{ d.status }}" style="
+          {% if d.status == 'added' %}background-color: #f0fdf4;
+          {% elif d.status == 'removed' %}background-color: #fef2f2;
+          {% elif d.status == 'modified' %}background-color: #fffbeb;
+          {% endif %}
+        ">
+          <!-- Time & Section -->
+          <td>
+            <strong>{{ d.day }}</strong>
+            <div style="font-size: 0.78rem; font-family: var(--font-mono); color: var(--text-muted);">{{ d.time_slot }}</div>
+            <div style="margin-top: 0.2rem;">
+              <span class="tag-badge blue" style="font-size: 0.72rem;">{{ d.section }}</span>
+              {% if d.batch and d.batch != 'All' %}
+                <span class="tag-badge purple" style="font-size: 0.72rem;">Batch {{ d.batch }}</span>
+              {% endif %}
+            </div>
+          </td>
+
+          <!-- Left: Old Snapshot Slot -->
+          <td>
+            {% if d.old %}
+              <div style="font-weight: 700; color: #1e3a8a;">
+                {{ d.old.course_code }}
+                <span style="font-weight: normal; font-size: 0.8rem; color: var(--text-muted);">{{ d.old.course_name or '' }}</span>
+              </div>
+              <div style="font-size: 0.82rem; margin-top: 0.2rem;">
+                Faculty: <strong>{{ d.old.faculty_name }}</strong>
+              </div>
+              <div style="font-size: 0.78rem; color: var(--text-muted); font-family: var(--font-mono);">
+                Room: {{ d.old.room }}
+              </div>
+            {% else %}
+              <div class="muted" style="font-style: italic; font-size: 0.82rem;">(Empty / Free Slot)</div>
+            {% endif %}
+          </td>
+
+          <!-- Middle: Status & Delta Details -->
+          <td style="text-align: center; vertical-align: middle;">
+            {% if d.status == 'added' %}
+              <span class="tag-badge green" style="font-weight: 700; font-size: 0.78rem;">+ Added</span>
+            {% elif d.status == 'removed' %}
+              <span class="tag-badge red" style="font-weight: 700; font-size: 0.78rem;">- Removed</span>
+            {% elif d.status == 'modified' %}
+              <span class="tag-badge amber" style="font-weight: 700; font-size: 0.78rem;">~ Modified</span>
+              <div style="font-size: 0.72rem; color: #b45309; margin-top: 0.3rem; text-align: left; line-height: 1.2;">
+                {% for ch in d.changes %}
+                  <div>&bull; {{ ch }}</div>
+                {% endfor %}
+              </div>
+            {% else %}
+              <span class="tag-badge" style="background: #e2e8f0; color: #475569; font-size: 0.78rem;">= Identical</span>
+            {% endif %}
+          </td>
+
+          <!-- Right: New/Target Slot -->
+          <td>
+            {% if d.new %}
+              <div style="font-weight: 700; color: #1e3a8a;">
+                {{ d.new.course_code }}
+                <span style="font-weight: normal; font-size: 0.8rem; color: var(--text-muted);">{{ d.new.course_name or '' }}</span>
+              </div>
+              <div style="font-size: 0.82rem; margin-top: 0.2rem;">
+                Faculty: <strong>{{ d.new.faculty_name }}</strong>
+              </div>
+              <div style="font-size: 0.78rem; color: var(--text-muted); font-family: var(--font-mono);">
+                Room: {{ d.new.room }}
+              </div>
+            {% else %}
+              <div class="muted" style="font-style: italic; font-size: 0.82rem;">(Empty / Free Slot)</div>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+function filterDiff(mode, btn) {
+  document.querySelectorAll('.active-filter').forEach(el => el.classList.remove('active-filter'));
+  if (btn) btn.classList.add('active-filter');
+
+  const rows = document.querySelectorAll('#diff-table tbody tr.diff-row');
+  rows.forEach(r => {
+    if (mode === 'all') {
+      r.style.display = '';
+    } else if (mode === 'changed') {
+      r.style.display = r.classList.contains('diff-type-unchanged') ? 'none' : '';
+    } else {
+      r.style.display = r.classList.contains('diff-type-' + mode) ? '' : 'none';
+    }
+  });
+}
+</script>
+
+<style>
+.active-filter {
+  background-color: var(--primary) !important;
+  color: #ffffff !important;
+  border-color: var(--primary) !important;
+}
+</style>
+
+{% endblock %}
