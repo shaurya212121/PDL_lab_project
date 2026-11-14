@@ -20,6 +20,8 @@ settings          -> college rules (time slots, working days, limits ...)
 
 import os
 import sqlite3
+import json
+from datetime import datetime
 from werkzeug.security import generate_password_hash
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -171,6 +173,29 @@ CREATE TABLE IF NOT EXISTS holidays (
     name         TEXT NOT NULL,
     holiday_type TEXT NOT NULL DEFAULT 'Institutional',
     description  TEXT
+);
+CREATE TABLE IF NOT EXISTS timetable_versions (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    version_name TEXT NOT NULL,
+    description  TEXT,
+    created_at   TEXT NOT NULL,
+    created_by   TEXT DEFAULT 'admin',
+    slot_count   INTEGER NOT NULL DEFAULT 0,
+    data_json    TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS exam_sessions (
+    id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+    exam_date            TEXT NOT NULL,
+    time_slot            TEXT NOT NULL,
+    session_title        TEXT NOT NULL,
+    course_code          TEXT NOT NULL,
+    course_name          TEXT,
+    sections             TEXT NOT NULL,
+    room                 TEXT NOT NULL,
+    primary_supervisor   TEXT NOT NULL,
+    assistant_supervisor TEXT DEFAULT '',
+    total_students       INTEGER DEFAULT 0,
+    notes                TEXT
 );
 """
 
@@ -520,6 +545,100 @@ def add_holiday(holiday_date, name, holiday_type="Institutional", description=""
 
 def delete_holiday(holiday_id):
     execute("DELETE FROM holidays WHERE id = ?", (holiday_id,))
+
+
+# ---------------------------------------------------------------------------
+# Timetable Versioning & Rollback History
+# ---------------------------------------------------------------------------
+def save_timetable_version(version_name, description="", created_by="admin"):
+    """Snapshot the current active timetable into a versioned draft."""
+    slots = get_timetable()
+    data_json = json.dumps(slots)
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    return execute(
+        "INSERT INTO timetable_versions (version_name, description, created_at, created_by, slot_count, data_json) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
+        (version_name.strip(), description.strip(), now_str, created_by.strip(), len(slots), data_json)
+    )
+
+
+def get_timetable_versions():
+    """Return all saved timetable versions ordered by creation time descending."""
+    return query("SELECT id, version_name, description, created_at, created_by, slot_count FROM timetable_versions ORDER BY id DESC")
+
+
+def get_timetable_version(version_id):
+    """Retrieve full version snapshot including deserialized entries."""
+    rows = query("SELECT * FROM timetable_versions WHERE id = ?", (version_id,))
+    if not rows:
+        return None
+    ver = dict(rows[0])
+    try:
+        ver["entries"] = json.loads(ver["data_json"])
+    except Exception:
+        ver["entries"] = []
+    return ver
+
+
+def delete_timetable_version(version_id):
+    execute("DELETE FROM timetable_versions WHERE id = ?", (version_id,))
+
+
+def rollback_timetable_version(version_id):
+    """Restore the timetable to the state captured in the selected version."""
+    ver = get_timetable_version(version_id)
+    if not ver:
+        return False, "Version not found."
+    clear_timetable()
+    for entry in ver["entries"]:
+        add_entry(entry)
+    return True, f"Successfully rolled back timetable to '{ver['version_name']}' ({len(ver['entries'])} classes restored)."
+
+
+# ---------------------------------------------------------------------------
+# Exam Supervision & Multi-Class Cohort Scheduling
+# ---------------------------------------------------------------------------
+def get_exam_sessions():
+    return query("SELECT * FROM exam_sessions ORDER BY exam_date ASC, time_slot ASC, room ASC")
+
+
+def get_exam_session(session_id):
+    rows = query("SELECT * FROM exam_sessions WHERE id = ?", (session_id,))
+    return rows[0] if rows else None
+
+
+def add_exam_session(exam_date, time_slot, session_title, course_code, course_name, sections, room, primary_supervisor, assistant_supervisor="", notes=""):
+    sec_names = [s.strip() for s in sections.split(",") if s.strip()]
+    sec_catalog = {s["name"]: s["strength"] for s in get_sections()}
+    total_students = sum(sec_catalog.get(s, 60) for s in sec_names)
+
+    return execute(
+        "INSERT INTO exam_sessions (exam_date, time_slot, session_title, course_code, course_name, sections, room, primary_supervisor, assistant_supervisor, total_students, notes) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (exam_date.strip(), time_slot.strip(), session_title.strip(), course_code.strip(), course_name.strip(),
+         ", ".join(sec_names), room.strip(), primary_supervisor.strip(), (assistant_supervisor or "").strip(), total_students, (notes or "").strip())
+    )
+
+
+def delete_exam_session(session_id):
+    execute("DELETE FROM exam_sessions WHERE id = ?", (session_id,))
+
+
+def get_supervisor_duty_stats():
+    """Calculate the number of exam duties assigned to each faculty member."""
+    faculty_list = get_faculty_catalog()
+    stats = {f: {"faculty_name": f, "primary_duties": 0, "assistant_duties": 0, "total_duties": 0} for f in faculty_list}
+    for session in get_exam_sessions():
+        p = session.get("primary_supervisor")
+        a = session.get("assistant_supervisor")
+        if p and p in stats:
+            stats[p]["primary_duties"] += 1
+            stats[p]["total_duties"] += 1
+        if a and a in stats:
+            stats[a]["assistant_duties"] += 1
+            stats[a]["total_duties"] += 1
+    return sorted(stats.values(), key=lambda x: (-x["total_duties"], x["faculty_name"]))
+
 
 
 # ---------------------------------------------------------------------------

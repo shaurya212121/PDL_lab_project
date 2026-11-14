@@ -28,6 +28,8 @@ from core.conflict_detector import ConflictDetector
 from core.generator import TimetableGenerator
 from core.scenarios import SCENARIOS
 from core.substitutes import classes_missed, substitute_options, weekday_of
+from core.versioning import diff_timetables
+from core import exam_scheduler
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(BASE_DIR, "model", "workload_model.joblib")
@@ -962,6 +964,186 @@ def holiday_delete(holiday_id):
     db.delete_holiday(holiday_id)
     flash("Holiday removed.", "success")
     return redirect(url_for("holidays_page"))
+
+
+# ---------------------------------------------------------------------------
+# Timetable Versioning & Rollback History
+# ---------------------------------------------------------------------------
+@app.route("/versions")
+def versions_page():
+    versions = db.get_timetable_versions()
+    current_slots = db.get_timetable()
+    return render_template("versions.html", versions=versions, current_count=len(current_slots))
+
+
+@app.route("/versions/save", methods=["POST"])
+@login_required
+def version_save():
+    name = request.form.get("version_name", "").strip()
+    desc = request.form.get("description", "").strip()
+    if not name:
+        flash("Draft name is required (e.g., 'Draft v1 - Pre-Midterm').", "error")
+        return redirect(url_for("versions_page"))
+
+    current_slots = db.get_timetable()
+    if not current_slots:
+        flash("Cannot save draft of an empty timetable.", "warning")
+        return redirect(url_for("versions_page"))
+
+    user = session.get("user", "admin")
+    vid = db.save_timetable_version(name, desc, created_by=user)
+    flash(f"Successfully saved draft '{name}' ({len(current_slots)} classes).", "success")
+    return redirect(url_for("versions_page"))
+
+
+@app.route("/versions/<int:version_id>/diff")
+def version_diff(version_id):
+    ver = db.get_timetable_version(version_id)
+    if not ver:
+        flash("Draft version not found.", "error")
+        return redirect(url_for("versions_page"))
+
+    compare_to_id = request.args.get("compare_to")
+    other_version = None
+    if compare_to_id and compare_to_id.isdigit():
+        other_version = db.get_timetable_version(int(compare_to_id))
+
+    if other_version:
+        compare_target_name = other_version["version_name"]
+        target_slots = other_version["entries"]
+    else:
+        compare_target_name = "Current Active Timetable"
+        target_slots = db.get_timetable()
+
+    diff_result = diff_timetables(ver["entries"], target_slots)
+    all_versions = db.get_timetable_versions()
+
+    return render_template("version_diff.html",
+                           version=ver,
+                           target_name=compare_target_name,
+                           other_version=other_version,
+                           all_versions=all_versions,
+                           diff=diff_result)
+
+
+@app.route("/versions/<int:version_id>/rollback", methods=["POST"])
+@login_required
+def version_rollback(version_id):
+    current_slots = db.get_timetable()
+    if current_slots:
+        now_str = date.today().isoformat()
+        db.save_timetable_version(f"Auto-Backup before Rollback ({now_str})",
+                                  description="Created automatically prior to restoring older draft",
+                                  created_by=session.get("user", "system"))
+
+    success, msg = db.rollback_timetable_version(version_id)
+    if success:
+        flash(msg, "success")
+    else:
+        flash(msg, "error")
+    return redirect(url_for("timetable_page"))
+
+
+@app.route("/versions/<int:version_id>/delete", methods=["POST"])
+@login_required
+def version_delete(version_id):
+    db.delete_timetable_version(version_id)
+    flash("Timetable draft deleted.", "success")
+    return redirect(url_for("versions_page"))
+
+
+# ---------------------------------------------------------------------------
+# Exam Supervision & Multi-Class Cohort Scheduling
+# ---------------------------------------------------------------------------
+@app.route("/exams")
+def exams_page():
+    sessions = db.get_exam_sessions()
+    conflict_report = exam_scheduler.check_exam_conflicts(sessions)
+    duty_summary = exam_scheduler.get_invigilation_roster_stats()
+
+    faculty_list = db.get_faculty_catalog()
+    rooms_list = db.get_rooms()
+    sections_list = db.get_sections()
+    subjects_list = db.get_subjects()
+
+    return render_template("exams.html",
+                           sessions=sessions,
+                           conflicts=conflict_report,
+                           duty_summary=duty_summary,
+                           faculty=faculty_list,
+                           rooms=rooms_list,
+                           sections=sections_list,
+                           subjects=subjects_list,
+                           today=date.today().isoformat())
+
+
+@app.route("/exams/add", methods=["POST"])
+@login_required
+def exam_add():
+    exam_date = request.form.get("exam_date", "").strip()
+    time_slot = request.form.get("time_slot", "").strip()
+    session_title = request.form.get("session_title", "").strip()
+    course_code = request.form.get("course_code", "").strip()
+    room = request.form.get("room", "").strip()
+    primary_supervisor = request.form.get("primary_supervisor", "").strip()
+    assistant_supervisor = request.form.get("assistant_supervisor", "").strip()
+    notes = request.form.get("notes", "").strip()
+
+    selected_sections = request.form.getlist("sections")
+    if not selected_sections:
+        manual_sections = request.form.get("manual_sections", "").strip()
+        if manual_sections:
+            selected_sections = [s.strip() for s in manual_sections.split(",") if s.strip()]
+
+    if not exam_date or not time_slot or not course_code or not room or not primary_supervisor:
+        flash("Date, time slot, course, room, and primary supervisor are required.", "error")
+        return redirect(url_for("exams_page"))
+
+    if not selected_sections:
+        flash("Please select at least one student section to examine.", "error")
+        return redirect(url_for("exams_page"))
+
+    sub_lookup = {s["code"]: s["name"] for s in db.get_subjects()}
+    course_name = sub_lookup.get(course_code, "")
+
+    sec_string = ", ".join(selected_sections)
+
+    db.add_exam_session(
+        exam_date=exam_date,
+        time_slot=time_slot,
+        session_title=session_title or "Semester Examination",
+        course_code=course_code,
+        course_name=course_name,
+        sections=sec_string,
+        room=room,
+        primary_supervisor=primary_supervisor,
+        assistant_supervisor=assistant_supervisor,
+        notes=notes
+    )
+
+    flash(f"Scheduled exam '{course_code}' in {room} for pooled sections [{sec_string}].", "success")
+    return redirect(url_for("exams_page"))
+
+
+@app.route("/exams/delete/<int:session_id>", methods=["POST"])
+@login_required
+def exam_delete(session_id):
+    db.delete_exam_session(session_id)
+    flash("Exam session deleted.", "success")
+    return redirect(url_for("exams_page"))
+
+
+@app.route("/exams/print")
+def exam_print():
+    sessions = db.get_exam_sessions()
+    duty_summary = exam_scheduler.get_invigilation_roster_stats()
+    college_name = db.get_settings().get("college_name", "Academic Institution")
+    return render_template("exam_print.html",
+                           sessions=sessions,
+                           duty_summary=duty_summary,
+                           college_name=college_name,
+                           today=date.today().isoformat())
+
 
 
 # ---------------------------------------------------------------------------

@@ -319,14 +319,66 @@
   left: 50%;
   transform: translate(-50%, -50%);
   width: 90%;
-  max-width: 560px;
+  max-width: 580px;
   background: #ffffff;
   border-radius: 16px;
   border: 1px solid #e2e8f0;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   z-index: 1000;
   padding: 1.75rem;
   animation: slideIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.editor-modal .form-row-2 {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 1rem !important;
+  margin-top: 0 !important;
+  margin-bottom: 0.9rem !important;
+  align-items: flex-start !important;
+}
+
+.editor-modal .form-group {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0.35rem !important;
+  margin-bottom: 0 !important;
+  width: 100% !important;
+}
+
+.editor-modal .form-group label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #475569;
+  letter-spacing: 0.01em;
+}
+
+.editor-modal input,
+.editor-modal select {
+  width: 100% !important;
+  box-sizing: border-box !important;
+  padding: 0.6rem 0.85rem !important;
+  font-size: 0.875rem !important;
+  border: 1.5px solid #cbd5e1 !important;
+  border-radius: 8px !important;
+  background-color: #ffffff;
+  color: #0f172a;
+  outline: none;
+  transition: all 0.15s ease;
+}
+
+.editor-modal input:focus,
+.editor-modal select:focus {
+  border-color: #2563eb !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
+}
+
+.editor-modal input[readonly] {
+  background-color: #f8fafc !important;
+  color: #475569 !important;
+  border-color: #e2e8f0 !important;
+  font-weight: 600;
+  cursor: default;
 }
 
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -557,11 +609,11 @@
     <div class="form-row-2">
       <div class="form-group">
         <label>Subject</label>
-        <input type="text" id="ca_course_display" readonly style="background: #f1f5f9; font-weight: 600;">
+        <input type="text" id="ca_course_display" readonly>
       </div>
       <div class="form-group">
         <label>Section</label>
-        <input type="text" id="ca_section" name="section" readonly style="background: #f1f5f9; font-weight: 600;">
+        <input type="text" id="ca_section" name="section" readonly>
       </div>
     </div>
 
@@ -580,17 +632,7 @@
       </div>
     </div>
 
-    <div class="form-row-3">
-      <div class="form-group">
-        <label>Lab Batch</label>
-        <select id="ca_batch" name="batch">
-          <option value="All">All (Entire Section)</option>
-          <option value="B1">Batch B1</option>
-          <option value="B2">Batch B2</option>
-          <option value="B3">Batch B3</option>
-          <option value="B4">Batch B4</option>
-        </select>
-      </div>
+    <div class="form-row-2">
       <div class="form-group">
         <label>Day</label>
         <select id="ca_day" name="day">
@@ -605,7 +647,21 @@
       </div>
     </div>
 
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem; pt-3; border-top: 1px solid #f1f5f9;">
+    <div class="form-row-2">
+      <div class="form-group">
+        <label>Lab Batch</label>
+        <select id="ca_batch" name="batch">
+          <option value="All">All (Entire Section)</option>
+          <option value="B1">Batch B1</option>
+          <option value="B2">Batch B2</option>
+          <option value="B3">Batch B3</option>
+          <option value="B4">Batch B4</option>
+        </select>
+      </div>
+      <div class="form-group"></div>
+    </div>
+
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #f1f5f9;">
       <button type="submit" class="btn-modern-primary">Save Changes</button>
       <button type="button" class="btn-modern-danger" onclick="deleteActiveEntry()">Delete This Class</button>
     </div>
@@ -656,15 +712,18 @@
       </div>
     </div>
 
-    <div class="form-row-3">
+    <div class="form-row-2">
       <div class="form-group">
         <label>Day</label>
-        <input type="text" id="add_day" name="day" readonly style="background: #f1f5f9; font-weight: 600;">
+        <input type="text" id="add_day" name="day" readonly>
       </div>
       <div class="form-group">
         <label>Time Slot</label>
-        <input type="text" id="add_slot" name="time_slot" readonly style="background: #f1f5f9; font-weight: 600;">
+        <input type="text" id="add_slot" name="time_slot" readonly>
       </div>
+    </div>
+
+    <div class="form-row-2">
       <div class="form-group">
         <label>Lab Batch</label>
         <select name="batch">
@@ -675,9 +734,10 @@
           <option value="B4">Batch B4</option>
         </select>
       </div>
+      <div class="form-group"></div>
     </div>
 
-    <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end; gap: 0.5rem;">
+    <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end; gap: 0.5rem; padding-top: 1rem; border-top: 1px solid #f1f5f9;">
       <button type="button" class="editor-btn-pill" onclick="closeModals()">Cancel</button>
       <button type="submit" class="btn-modern-primary">Add Class to Slot</button>
     </div>

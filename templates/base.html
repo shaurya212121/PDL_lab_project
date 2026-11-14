@@ -49,6 +49,8 @@
       {% if is_admin %}<a href="{{ url_for('generate_page') }}" class="{{ 'active' if p.startswith('/generate') }}">Auto-Generate</a>{% endif %}
       {% if is_admin %}<a href="{{ url_for('leave_page') }}" class="{{ 'active' if p.startswith('/leave') }}">Leave & Substitutes</a>{% endif %}
       <a href="{{ url_for('holidays_page') }}" class="{{ 'active' if p.startswith('/holidays') }}">Holidays</a>
+      <a href="{{ url_for('exams_page') }}" class="{{ 'active' if p.startswith('/exams') }}">Exam Supervision</a>
+      {% if is_admin %}<a href="{{ url_for('versions_page') }}" class="{{ 'active' if p.startswith('/versions') }}">Versions & Rollback</a>{% endif %}
       <a href="{{ url_for('reports_page') }}" class="{{ 'active' if p.startswith('/reports') }}">Reports</a>
       <a href="{{ url_for('print_menu') }}" class="{{ 'active' if p.startswith('/print') }}">Print</a>
       {% if is_admin %}<a href="{{ url_for('settings_page') }}" class="{{ 'active' if p.startswith('/settings') }}">Settings</a>{% endif %}
