@@ -451,6 +451,158 @@
   border-color: #ef4444;
   transform: translateY(-1px);
 }
+
+/* Dark Mode Styles for Interactive Editor */
+[data-theme="dark"] .editor-title h3 {
+  color: var(--text-main);
+}
+
+[data-theme="dark"] .editor-controls-bar {
+  background: var(--bg-card);
+  border-color: var(--border-color);
+}
+
+[data-theme="dark"] .editor-btn-pill {
+  background: var(--bg-card);
+  border-color: var(--border-color);
+  color: var(--text-muted);
+}
+
+[data-theme="dark"] .editor-btn-pill:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+[data-theme="dark"] .editor-btn-pill.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #ffffff;
+}
+
+[data-theme="dark"] .editor-toggle-container {
+  background: #0e172a;
+  border-color: var(--border-color);
+}
+
+[data-theme="dark"] .editor-toggle-btn {
+  color: var(--text-muted);
+}
+
+[data-theme="dark"] .editor-toggle-btn.active {
+  background: var(--bg-card);
+  color: var(--text-main);
+}
+
+[data-theme="dark"] .editor-grid-card {
+  background: var(--bg-card);
+  border-color: var(--border-color);
+}
+
+[data-theme="dark"] .editor-table th {
+  background: #18243c;
+  color: var(--text-muted);
+  border-bottom-color: var(--border-color);
+  border-right-color: var(--border-color);
+}
+
+[data-theme="dark"] .editor-table th.slot-col-head {
+  background: #18243c;
+  color: var(--text-main);
+}
+
+[data-theme="dark"] .editor-table td {
+  background: var(--bg-card);
+  border-bottom-color: var(--border-color);
+  border-right-color: var(--border-color);
+}
+
+[data-theme="dark"] .editor-table td.slot-label-cell {
+  background: #0e172a;
+  color: var(--text-main);
+  border-right-color: var(--border-color);
+}
+
+[data-theme="dark"] .editor-table tr.lunch-row td {
+  background: #0e172a !important;
+  border-top-color: var(--border-color) !important;
+  border-bottom-color: var(--border-color) !important;
+}
+
+[data-theme="dark"] .lunch-banner-cell {
+  color: var(--text-muted);
+}
+
+[data-theme="dark"] .class-chip {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+[data-theme="dark"] .class-chip-code {
+  color: var(--text-main);
+}
+
+[data-theme="dark"] .class-chip-fac {
+  color: var(--text-muted);
+}
+
+[data-theme="dark"] .class-chip.clash {
+  background: rgba(239, 68, 68, 0.16);
+  border-color: var(--danger);
+}
+
+[data-theme="dark"] .class-chip.clash .class-chip-code {
+  color: #fca5a5;
+}
+
+[data-theme="dark"] .class-chip-badge {
+  background: #18243c;
+  color: var(--text-muted);
+}
+
+[data-theme="dark"] .empty-slot-btn {
+  border-color: var(--border-color);
+  color: var(--text-light);
+}
+
+[data-theme="dark"] .empty-slot-btn:hover {
+  background: #0e172a;
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+[data-theme="dark"] .editor-modal {
+  background: var(--bg-card);
+  border-color: var(--border-color);
+  color: var(--text-main);
+}
+
+[data-theme="dark"] .modal-header {
+  border-bottom-color: var(--border-color);
+}
+
+[data-theme="dark"] .modal-header h3 {
+  color: var(--text-main);
+}
+
+[data-theme="dark"] .editor-modal .form-group label {
+  color: var(--text-muted);
+}
+
+[data-theme="dark"] .editor-modal input,
+[data-theme="dark"] .editor-modal select {
+  background-color: #0e172a !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-main) !important;
+}
+
+[data-theme="dark"] .modal-close-btn {
+  color: var(--text-muted);
+}
+
+[data-theme="dark"] .modal-close-btn:hover {
+  color: var(--text-main);
+  background: #18243c;
+}
 </style>
 
 {% set p = request.path %}
@@ -608,7 +760,7 @@
 <div id="classActionModal" class="editor-modal">
   <div class="modal-header">
     <h3 id="ca_title">Edit Scheduled Class</h3>
-    <button type="button" class="modal-close-btn" onclick="closeModals()">✕</button>
+    <button type="button" class="modal-close-btn" onclick="closeModals()">&times;</button>
   </div>
 
   <form id="classActionForm" method="post" action="{{ url_for('interactive_editor_save') }}">
@@ -683,7 +835,7 @@
 <div id="addClassModal" class="editor-modal">
   <div class="modal-header">
     <h3>Schedule Class at this Slot</h3>
-    <button type="button" class="modal-close-btn" onclick="closeModals()">✕</button>
+    <button type="button" class="modal-close-btn" onclick="closeModals()">&times;</button>
   </div>
 
   <form method="post" action="{{ url_for('timetable_add') }}">

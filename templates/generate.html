@@ -50,7 +50,7 @@
         </div>
 
         <button type="button" class="btn btn-primary" style="width: 100%; padding: 0.75rem;" onclick="submitGeneration()">
-          🚀 Run Constraint Solver & Generate Timetable
+          Run Constraint Solver & Generate Timetable
         </button>
       </form>
     </div>
@@ -85,7 +85,7 @@
 
 <!-- Modal to add single requirement -->
 <div id="addReqModal" class="card" style="display: none; margin-top: 1.5rem; border: 2px solid #3b82f6;">
-  <h4>➕ Add Specific Course Requirement</h4>
+  <h4>Add Specific Course Requirement</h4>
   <div class="form-row-3" style="margin-top: 0.75rem;">
     <div class="form-group">
       <label>Section</label>
@@ -157,7 +157,7 @@ function renderReqTable() {
         </td>
         <td>${r.faculty_name || '<span class="muted">Auto-assign</span>'}</td>
         <td>
-          <button type="button" class="link-btn danger" onclick="removeRequirement(${idx})">✕</button>
+          <button type="button" class="link-btn danger" onclick="removeRequirement(${idx})" title="Remove requirement">&times;</button>
         </td>
       </tr>
     `;

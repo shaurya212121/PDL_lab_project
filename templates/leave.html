@@ -34,8 +34,8 @@
     </form>
   </div>
 
-  <div class="card" style="border: 2px solid #8b5cf6; background: #faf5ff;">
-    <h3 style="color: #6b21a8;">Long-Term & Maternity Cover Planner</h3>
+  <div class="card card-purple-accent">
+    <h3 class="purple-heading">Long-Term & Maternity Cover Planner</h3>
     <p class="card-desc">For maternity leave (6 months), medical leave, or sabbaticals. Select an eligible cover professor to take over all their weekly classes in bulk without manual day-to-day phone calls.</p>
     <form method="post" action="{{ url_for('long_term_leave_add') }}" class="stack-form">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -87,15 +87,15 @@
   </div>
 
   {% for ltl in long_term_leaves %}
-  <div style="background: #ffffff; border: 1.5px solid #e9d5ff; border-radius: 10px; padding: 1.25rem; margin-bottom: 1.25rem; box-shadow: 0 2px 5px rgba(0,0,0,0.03);">
+  <div class="card ltl-plan-card">
     <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.75rem;">
       <div>
-        <h4 style="font-size: 1.05rem; font-weight: 800; color: #1e1b4b; display: flex; align-items: center; gap: 0.5rem;">
+        <h4 class="ltl-plan-title">
           {{ ltl.faculty_name }}
           <span class="tag-badge purple">{{ ltl.leave_type }}</span>
         </h4>
         <p class="card-desc" style="margin-top: 2px;">
-          📅 <strong>{{ ltl.start_date }}</strong> to <strong>{{ ltl.end_date }}</strong> &bull; {{ ltl.notes or 'No notes' }}
+          <strong>{{ ltl.start_date }}</strong> to <strong>{{ ltl.end_date }}</strong> &bull; {{ ltl.notes or 'No notes' }}
         </p>
       </div>
       <form method="post" action="{{ url_for('long_term_leave_delete', leave_id=ltl.id) }}" data-confirm="End and delete this long-term leave cover plan?">

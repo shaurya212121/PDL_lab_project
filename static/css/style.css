@@ -58,7 +58,7 @@ body {
 
 /* Navbar */
 .navbar {
-  background: #ffffff;
+  background: var(--bg-card);
   border-bottom: 1px solid var(--border-color);
   padding: 0.85rem 1.5rem;
   position: sticky;
@@ -103,7 +103,7 @@ body {
   font-size: 1.25rem;
   font-weight: 800;
   letter-spacing: -0.02em;
-  color: #0f172a;
+  color: var(--text-main);
 }
 
 .brand-text .highlight {
@@ -152,7 +152,7 @@ body {
 
 /* Presets Section */
 .presets-section {
-  background: #ffffff;
+  background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   padding: 1.25rem 1.5rem;
@@ -195,7 +195,7 @@ body {
   padding: 0.55rem 1rem;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-color);
-  background: #ffffff;
+  background: var(--bg-card);
   color: var(--text-main);
   cursor: pointer;
   transition: var(--transition);
@@ -239,7 +239,7 @@ body {
 }
 
 .stat-card {
-  background: #ffffff;
+  background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   padding: 1rem 1.25rem;
@@ -413,7 +413,7 @@ body {
   justify-content: space-between;
   gap: 1rem;
   border-left: 4px solid;
-  background: #ffffff;
+  background: var(--bg-card);
   box-shadow: var(--shadow-sm);
 }
 
@@ -674,7 +674,7 @@ select {
   padding: 0.55rem 0.75rem;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  background-color: #ffffff;
+  background-color: var(--bg-card);
   color: var(--text-main);
   outline: none;
   transition: var(--transition);
@@ -891,7 +891,7 @@ input:focus, select:focus {
 
 /* Footer */
 .footer {
-  background: #ffffff;
+  background: var(--bg-card);
   border-top: 1px solid var(--border-color);
   padding: 1.25rem 1.5rem;
   text-align: center;
@@ -907,4 +907,271 @@ input:focus, select:focus {
   font-size: 0.725rem;
   color: var(--text-light);
   margin-top: 0.25rem;
+}
+
+/* ==========================================================================
+   Theme Toggle Button & Dark Mode Styles
+   ========================================================================== */
+
+.theme-toggle-btn {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--transition);
+  padding: 0;
+  box-shadow: var(--shadow-sm);
+  flex-shrink: 0;
+}
+
+.theme-toggle-btn:hover {
+  background: var(--bg-main);
+  color: var(--text-main);
+  border-color: var(--border-focus);
+}
+
+.theme-toggle-btn svg {
+  width: 18px;
+  height: 18px;
+  transition: transform 0.2s ease;
+}
+
+/* Light mode defaults: show moon, hide sun */
+.theme-toggle-btn .sun-icon {
+  display: none;
+}
+.theme-toggle-btn .moon-icon {
+  display: block;
+}
+
+/* Dark mode theme variables */
+[data-theme="dark"] {
+  --bg-main: #0b1120;
+  --bg-card: #131e36;
+  --border-color: #24344d;
+  --border-focus: #60a5fa;
+  
+  --text-main: #f1f5f9;
+  --text-muted: #94a3b8;
+  --text-light: #64748b;
+
+  --primary: #3b82f6;
+  --primary-hover: #60a5fa;
+  --primary-light: rgba(59, 130, 246, 0.16);
+  --primary-glow: rgba(59, 130, 246, 0.25);
+
+  --success: #10b981;
+  --success-light: rgba(16, 185, 129, 0.16);
+  --warning: #f59e0b;
+  --warning-light: rgba(245, 158, 11, 0.16);
+  --danger: #f87171;
+  --danger-light: rgba(239, 68, 68, 0.16);
+  --purple: #a855f7;
+  --purple-light: rgba(168, 85, 247, 0.16);
+
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.45), 0 2px 4px -2px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.55), 0 4px 6px -4px rgba(0, 0, 0, 0.45);
+}
+
+/* Dark mode toggle icon swap */
+[data-theme="dark"] .theme-toggle-btn .sun-icon {
+  display: block;
+}
+[data-theme="dark"] .theme-toggle-btn .moon-icon {
+  display: none;
+}
+
+/* Dark mode component-level styling */
+[data-theme="dark"] .navbar {
+  background: var(--bg-card);
+  border-bottom-color: var(--border-color);
+}
+
+[data-theme="dark"] .stat-card {
+  background: var(--bg-card);
+  border-color: var(--border-color);
+}
+
+[data-theme="dark"] .stat-icon {
+  background: #1a2744;
+  color: var(--text-main);
+}
+
+[data-theme="dark"] .presets-section,
+[data-theme="dark"] .card,
+[data-theme="dark"] .inline-form-card,
+[data-theme="dark"] .workload-item,
+[data-theme="dark"] .metric-box {
+  background: var(--bg-card);
+  border-color: var(--border-color);
+}
+
+[data-theme="dark"] .preset-btn {
+  background: var(--bg-card);
+  border-color: var(--border-color);
+  color: var(--text-main);
+}
+
+[data-theme="dark"] .preset-btn.active {
+  background: var(--primary-light);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+[data-theme="dark"] input[type="number"],
+[data-theme="dark"] input[type="text"],
+[data-theme="dark"] input[type="password"],
+[data-theme="dark"] input[type="date"],
+[data-theme="dark"] input:not([type]),
+[data-theme="dark"] textarea,
+[data-theme="dark"] select {
+  background-color: #0e172a;
+  border-color: var(--border-color);
+  color: var(--text-main);
+}
+
+[data-theme="dark"] label {
+  color: var(--text-muted);
+}
+
+[data-theme="dark"] .btn-secondary,
+[data-theme="dark"] .btn-secondary-sm {
+  background: #1a2744;
+  color: var(--text-main);
+  border-color: var(--border-color);
+}
+
+[data-theme="dark"] .btn-secondary:hover,
+[data-theme="dark"] .btn-secondary-sm:hover {
+  background: #24344d;
+}
+
+[data-theme="dark"] .data-table th {
+  background: #18243c;
+  color: var(--text-muted);
+  border-bottom-color: var(--border-color);
+}
+
+[data-theme="dark"] .data-table td {
+  color: var(--text-main);
+  border-bottom-color: var(--border-color);
+}
+
+[data-theme="dark"] .data-table tr.clash-row {
+  background: rgba(239, 68, 68, 0.16);
+}
+
+[data-theme="dark"] .data-table tr.clash-row td {
+  color: #fca5a5;
+}
+
+[data-theme="dark"] .conflict-card {
+  background: var(--bg-card);
+  border-color: var(--border-color);
+}
+
+[data-theme="dark"] .conflict-card.CRITICAL {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
+[data-theme="dark"] .conflict-card.WARNING {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+[data-theme="dark"] .conflict-desc {
+  color: var(--text-muted);
+}
+
+[data-theme="dark"] .resolve-banner {
+  background: rgba(37, 99, 235, 0.14);
+  border-color: rgba(37, 99, 235, 0.3);
+}
+
+[data-theme="dark"] .resolve-info h4 {
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .resolve-info p {
+  color: #bfdbfe;
+}
+
+[data-theme="dark"] .fix-box {
+  background: #0e172a;
+  border-color: var(--border-color);
+}
+
+[data-theme="dark"] .recommendation-box {
+  background: #0e172a;
+}
+
+[data-theme="dark"] .recommendation-box p {
+  color: var(--text-muted);
+}
+
+[data-theme="dark"] .stress-hours-info {
+  color: var(--text-muted);
+}
+
+[data-theme="dark"] .prob-track,
+[data-theme="dark"] .bar-track {
+  background: #1a2744;
+}
+
+[data-theme="dark"] .benchmark-table th {
+  background: #18243c;
+  color: var(--text-muted);
+  border-bottom-color: var(--border-color);
+}
+
+[data-theme="dark"] .benchmark-table td {
+  color: var(--text-main);
+  border-bottom-color: var(--border-color);
+}
+
+[data-theme="dark"] .benchmark-table tr.highlight-row {
+  background: rgba(59, 130, 246, 0.15);
+}
+
+[data-theme="dark"] .benchmark-table tr.highlight-row td {
+  color: var(--primary);
+  border-bottom-color: rgba(59, 130, 246, 0.3);
+}
+
+[data-theme="dark"] .tag-badge.red {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+}
+
+[data-theme="dark"] .tag-badge.amber {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fcd34d;
+}
+
+[data-theme="dark"] .tag-badge.green {
+  background: rgba(16, 185, 129, 0.2);
+  color: #6ee7b7;
+}
+
+[data-theme="dark"] .tag-badge.blue {
+  background: rgba(59, 130, 246, 0.2);
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .tag-badge.purple {
+  background: rgba(168, 85, 247, 0.2);
+  color: #d8b4fe;
+}
+
+[data-theme="dark"] .footer {
+  background: var(--bg-card);
+  border-top-color: var(--border-color);
 }

@@ -58,7 +58,7 @@ function renderConflicts(report) {
   const container = document.getElementById('conflictsContainer');
   if (report.conflicts_list.length === 0) {
     container.innerHTML = `
-      <div class="flash success">✅ <strong>No conflicts.</strong>
+      <div class="flash success"><strong>No conflicts.</strong>
         No double-bookings, section clashes, overloads or room problems found.</div>`;
     return;
   }
@@ -71,7 +71,7 @@ function renderConflicts(report) {
     const fixes = report.suggestions.filter(s => s.conflict_id === c.id);
     const fixHtml = fixes.map(s => `
       <div class="fix-box">
-        <span>💡 ${esc(s.reason)}</span>
+        <span>${esc(s.reason)}</span>
         ${IS_ADMIN ? `<button class="btn btn-resolve btn-sm" data-conflict="${esc(s.conflict_id)}"
                        data-entry="${esc(s.entry_id)}">Apply fix</button>` : ''}
       </div>`).join('');
@@ -85,8 +85,8 @@ function renderConflicts(report) {
           </div>
           <p class="conflict-desc">${esc(c.description)}</p>
           <div class="conflict-meta">
-            <span>📅 <strong>${esc(c.day)}</strong></span>
-            <span>⏰ <strong>${esc(c.time_slot)}</strong></span>
+            <span><strong>${esc(c.day)}</strong></span>
+            <span><strong>${esc(c.time_slot)}</strong></span>
           </div>
           ${fixHtml}
         </div>
@@ -212,9 +212,9 @@ async function handleStressPrediction(event) {
 function renderStressResult(data) {
   const badge = document.getElementById('stressBadge');
   const looks = {
-    2: ['red', '⚠️ HIGH BURNOUT RISK (OVERLOADED)'],
+    2: ['red', 'HIGH BURNOUT RISK (OVERLOADED)'],
     0: ['amber', 'UNDERLOADED / SPARE CAPACITY'],
-    1: ['green', '✅ BALANCED WORKLOAD']
+    1: ['green', 'BALANCED WORKLOAD']
   }[data.prediction_code];
   badge.className = `stress-badge tag-badge ${looks[0]}`;
   badge.innerText = looks[1];
