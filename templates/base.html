@@ -43,6 +43,7 @@
     <nav class="nav-links">
       <a href="{{ url_for('home') }}" class="{{ 'active' if p == '/' }}">Dashboard</a>
       <a href="{{ url_for('timetable_page') }}" class="{{ 'active' if p.startswith('/timetable') }}">Timetable</a>
+      {% if is_admin %}<a href="{{ url_for('interactive_editor') }}" class="{{ 'active' if p.startswith('/editor') }}">Interactive Editor</a>{% endif %}
       <a href="{{ url_for('faculty_page') }}" class="{{ 'active' if p.startswith('/faculty') }}">Faculty</a>
       <a href="{{ url_for('masters_page') }}" class="{{ 'active' if p.startswith('/setup') }}">Rooms, Sections & Subjects</a>
       {% if is_admin %}<a href="{{ url_for('generate_page') }}" class="{{ 'active' if p.startswith('/generate') }}">Auto-Generate</a>{% endif %}

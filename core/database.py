@@ -141,6 +141,14 @@ CREATE TABLE IF NOT EXISTS settings (
     key   TEXT PRIMARY KEY,
     value TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS elective_baskets (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    basket_name  TEXT NOT NULL,
+    course_code  TEXT NOT NULL,
+    course_name  TEXT,
+    sections     TEXT NOT NULL,
+    capacity     INTEGER NOT NULL DEFAULT 60
+);
 """
 
 
@@ -389,6 +397,29 @@ def assign_substitute(leave_id, timetable_id, substitute_name):
 def remove_substitute(leave_id, timetable_id):
     execute("DELETE FROM substitutions WHERE leave_id = ? AND timetable_id = ?",
             (leave_id, timetable_id))
+
+
+# ---------------------------------------------------------------------------
+# Open Electives & Cross-Department Baskets
+# ---------------------------------------------------------------------------
+def get_elective_baskets():
+    return query("SELECT * FROM elective_baskets ORDER BY basket_name, course_code")
+
+
+def get_elective_basket(basket_id):
+    rows = query("SELECT * FROM elective_baskets WHERE id = ?", (basket_id,))
+    return rows[0] if rows else None
+
+
+def save_elective_basket(basket_name, course_code, course_name, sections, capacity=60):
+    execute("INSERT INTO elective_baskets (basket_name, course_code, course_name, sections, capacity) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (basket_name.strip(), course_code.strip().upper(), course_name.strip(),
+             sections.strip(), int(capacity)))
+
+
+def delete_elective_basket(basket_id):
+    execute("DELETE FROM elective_baskets WHERE id = ?", (basket_id,))
 
 
 # ---------------------------------------------------------------------------

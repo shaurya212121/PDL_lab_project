@@ -98,6 +98,7 @@ def make_detector():
         subjects=db.get_subjects(),
         faculty_subjects=db.get_faculty_subjects(),
         settings=db.get_settings(),
+        elective_baskets=db.get_elective_baskets(),
     )
 
 
@@ -470,6 +471,70 @@ def generate_run():
 
 
 # ---------------------------------------------------------------------------
+# Interactive Visual Timetable Editor
+# ---------------------------------------------------------------------------
+@app.route("/editor")
+@login_required
+def interactive_editor():
+    timetable, report = run_analysis()
+    settings = db.get_settings()
+    working_days = settings.get("working_days", [])
+    selected_day = request.args.get("day", working_days[0] if working_days else "Monday")
+    group_by = request.args.get("group_by", "sections")
+
+    # Clashed entry IDs for visual red highlight
+    clashed_ids = set()
+    for c in report["conflicts_list"]:
+        if c["severity"] == "CRITICAL":
+            for eid in c.get("involved_entries", []):
+                clashed_ids.add(eid)
+
+    # Determine columns based on grouping
+    if group_by == "sections":
+        columns = [s["name"] for s in db.get_sections()]
+    else:
+        columns = [r["name"] for r in db.get_rooms()]
+
+    # Grid map: (time_slot, col_name) -> list of entries
+    grid = defaultdict(list)
+    for e in timetable:
+        if e["day"] == selected_day:
+            col_val = e["section"] if group_by == "sections" else e["room"]
+            grid[(e["time_slot"], col_val)].append(e)
+
+    return render_template("editor.html", selected_day=selected_day, group_by=group_by,
+                           columns=columns, grid=grid, clashed_ids=clashed_ids,
+                           faculty=db.get_faculty(), rooms=db.get_rooms(),
+                           sections=db.get_sections(), settings=settings)
+
+
+@app.route("/editor/save", methods=["POST"])
+@login_required
+def interactive_editor_save():
+    eid = form_int("entry_id")
+    entry = db.get_entry(eid)
+    if not entry:
+        flash("Class not found.", "error")
+        return redirect(url_for("interactive_editor"))
+
+    updated = {
+        "faculty_name": request.form.get("faculty_name", entry["faculty_name"]),
+        "course_code": entry["course_code"],
+        "course_name": entry.get("course_name", ""),
+        "department": entry.get("department", ""),
+        "section": request.form.get("section", entry["section"]),
+        "day": request.form.get("day", entry["day"]),
+        "time_slot": request.form.get("time_slot", entry["time_slot"]),
+        "room": request.form.get("room", entry["room"]),
+    }
+
+    db.update_entry(eid, updated)
+    flash_conflicts_for(eid)
+    flash("Updated class allocation.", "success")
+    return redirect(url_for("interactive_editor", day=updated["day"], group_by=request.args.get("group_by", "sections")))
+
+
+# ---------------------------------------------------------------------------
 # Faculty
 # ---------------------------------------------------------------------------
 @app.route("/faculty")
@@ -558,7 +623,8 @@ def masters_page():
     teachers = db.get_faculty_subjects()
     return render_template("masters.html", rooms=db.get_rooms(), sections=db.get_sections(),
                            subjects=db.get_subjects(), teachers=teachers, room_types=db.ROOM_TYPES,
-                           departments=db.get_departments())
+                           departments=db.get_departments(),
+                           baskets=db.get_elective_baskets())
 
 
 def used_in_timetable(column, value):
@@ -638,6 +704,30 @@ def subject_delete(code):
         db.delete_subject(code)
         flash(f"Removed subject {code}.", "success")
     return redirect(url_for("masters_page") + "#subjects")
+
+
+@app.route("/baskets/save", methods=["POST"])
+@login_required
+def basket_save():
+    b_name = request.form.get("basket_name", "").strip()
+    c_code = request.form.get("course_code", "").strip().upper()
+    c_name = request.form.get("course_name", "").strip()
+    secs = request.form.get("sections", "").strip()
+    cap = form_int("capacity", 60)
+    if not b_name or not c_code or not secs:
+        flash("Basket name, course code, and eligible sections are required.", "error")
+    else:
+        db.save_elective_basket(b_name, c_code, c_name, secs, cap)
+        flash(f"Saved Open Elective Basket '{b_name}' for {c_code}.", "success")
+    return redirect(url_for("masters_page") + "#electives")
+
+
+@app.route("/baskets/delete/<int:basket_id>", methods=["POST"])
+@login_required
+def basket_delete(basket_id):
+    db.delete_elective_basket(basket_id)
+    flash("Removed elective basket.", "success")
+    return redirect(url_for("masters_page") + "#electives")
 
 
 # ---------------------------------------------------------------------------

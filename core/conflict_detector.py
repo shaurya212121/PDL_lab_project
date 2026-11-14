@@ -53,7 +53,7 @@ DEFAULT_FACULTY_CATALOG = {
 
 class ConflictDetector:
     def __init__(self, faculty_catalog=None, rooms=None, sections=None, subjects=None,
-                 faculty_subjects=None, settings=None):
+                 faculty_subjects=None, settings=None, elective_baskets=None):
         """
         faculty_catalog  : {name: {"designation", "department", "max_hours"}}
         rooms            : list of {"name", "room_type", "capacity"}
@@ -61,12 +61,14 @@ class ConflictDetector:
         subjects         : list of {"code", "name", "department", "is_lab"}
         faculty_subjects : {course_code: [faculty names who can teach it]}
         settings         : dict like DEFAULT_RULES
+        elective_baskets : list of {"basket_name", "course_code", "sections"}
         """
         self.catalog = faculty_catalog if faculty_catalog is not None else DEFAULT_FACULTY_CATALOG
         self.rooms = {r["name"]: r for r in (rooms or [])}
         self.sections = {s["name"]: s for s in (sections or [])}
         self.subjects = {s["code"]: s for s in (subjects or [])}
         self.faculty_subjects = faculty_subjects or {}
+        self.elective_baskets = elective_baskets or []
         self.rules = dict(DEFAULT_RULES)
         if settings:
             self.rules.update(settings)
@@ -299,6 +301,42 @@ class ConflictDetector:
                             "description": f"Lab sessions for {code} ({sec}) on {day} are not scheduled back-to-back as a continuous block.",
                             "involved_entries": [e.get("id") for e in lab_entries],
                         })
+
+        # ---- 12. Open Electives & Cross-Department Basket Conflicts ---
+        # When an elective course from a basket is scheduled, students from multiple
+        # sections are attending it simultaneously. Any other course scheduled for
+        # those participating sections at the exact same slot causes a cross-department clash.
+        if self.elective_baskets:
+            # Map course_code -> list of affected sections
+            course_basket_sections = defaultdict(list)
+            for b in self.elective_baskets:
+                c_code = b.get("course_code")
+                sec_str = b.get("sections", "")
+                secs = [s.strip() for s in sec_str.replace(";", ",").split(",") if s.strip()]
+                course_basket_sections[c_code].extend(secs)
+
+            for entry in schedule_entries:
+                c_code = entry.get("course_code")
+                if c_code in course_basket_sections:
+                    day = entry.get("day")
+                    slot = entry.get("time_slot")
+                    enrolled_secs = course_basket_sections[c_code]
+                    for enrolled_sec in enrolled_secs:
+                        # Check if this enrolled section has other non-elective classes at this same day & slot
+                        parallel_classes = section_slot_map.get((enrolled_sec, day, slot), [])
+                        for p in parallel_classes:
+                            if p.get("id") != entry.get("id") and p.get("course_code") != c_code:
+                                conflicts.append({
+                                    "id": f"ELECTIVE_CLASH|{c_code}|{enrolled_sec}|{day}|{slot}",
+                                    "type": "ELECTIVE_SECTION_CLASH", "severity": "CRITICAL", "badge": "Hard Conflict",
+                                    "title": f"Cross-Department Elective Clash: {c_code}",
+                                    "day": day, "time_slot": slot,
+                                    "description": f"Students of {enrolled_sec} enrolled in Open Elective {c_code} "
+                                                   f"have a conflicting parallel class: {p.get('course_code')} ({p.get('faculty_name')}) "
+                                                   f"on {day} at {slot}.",
+                                    "involved_entries": [entry.get("id"), p.get("id")],
+                                    "target_section": enrolled_sec,
+                                })
 
         # ---- 6. Weekly workload per faculty ---------------------------
         workload_distribution = []

@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+{% block title %}Interactive Timetable Editor{% endblock %}
+{% block content %}
+
+<div class="card">
+  <div class="card-header-flex">
+    <div>
+      <h3>Interactive Visual Timetable Editor</h3>
+      <p class="card-desc">Move, swap, or reassign classes directly on the master schedule grid with real-time clash verification.</p>
+    </div>
+    <div class="btn-row">
+      <a class="btn btn-secondary-sm" href="{{ url_for('timetable_page') }}">Back to Standard Timetable</a>
+    </div>
+  </div>
+
+  <!-- Controls Bar -->
+  <div class="matrix-controls-bar" style="display: flex; gap: 1rem; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-bottom: 1rem; background: #f8fafc; padding: 0.75rem 1rem; border-radius: 8px; border: 1px solid #e2e8f0;">
+    <div style="display: flex; gap: 0.5rem; align-items: center;">
+      <span style="font-weight: 700; font-size: 0.8rem; color: #475569;">DAY:</span>
+      <div class="day-pills" style="display: flex; gap: 0.35rem;">
+        {% for d in settings.working_days %}
+          <button type="button" class="day-pill-btn {{ 'active' if selected_day == d }}" onclick="location.href='{{ url_for('interactive_editor') }}?day={{ d }}&group_by={{ group_by }}'">{{ d }}</button>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 0.5rem; align-items: center;">
+      <span style="font-weight: 700; font-size: 0.8rem; color: #475569;">COLUMNS:</span>
+      <div class="pill-group">
+        <button type="button" class="pill-btn {{ 'active' if group_by == 'sections' }}" onclick="location.href='{{ url_for('interactive_editor') }}?day={{ selected_day }}&group_by=sections'">Sections</button>
+        <button type="button" class="pill-btn {{ 'active' if group_by == 'rooms' }}" onclick="location.href='{{ url_for('interactive_editor') }}?day={{ selected_day }}&group_by=rooms'">Rooms</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Interactive Grid Wrapper -->
+  <div class="matrix-table-wrapper" style="overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
+    <table class="master-matrix-table" style="width: 100%; border-collapse: collapse;">
+      <thead>
+        <tr style="background: #f1f5f9;">
+          <th style="padding: 0.75rem; text-align: left; width: 140px; border-bottom: 2px solid #cbd5e1; border-right: 1px solid #cbd5e1;">Time Slot</th>
+          {% for col in columns %}
+            <th style="padding: 0.75rem; text-align: center; border-bottom: 2px solid #cbd5e1; border-right: 1px solid #cbd5e1;">{{ col }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for slot in settings.time_slots %}
+          {% if slot == settings.lunch_after %}
+            <tr style="background: #f8fafc;">
+              <td style="padding: 0.75rem; font-weight: 700; color: #64748b; border-bottom: 1px dashed #cbd5e1; border-right: 1px solid #cbd5e1;">{{ slot }}</td>
+              {% for col in columns %}
+                {% set key = (slot, col) %}
+                {% set cell_classes = grid.get(key, []) %}
+                <td style="padding: 0.5rem; vertical-align: top; border-bottom: 1px dashed #cbd5e1; border-right: 1px solid #cbd5e1; min-height: 80px;">
+                  {% for c in cell_classes %}
+                    {% set is_clash = c.id in clashed_ids %}
+                    <div class="matrix-card {{ 'clash' if is_clash else 'valid' }}" style="padding: 0.5rem; border-radius: 6px; border: 1.5px solid {{ '#ef4444' if is_clash else '#10b981' }}; background: {{ '#fef2f2' if is_clash else '#ecfdf5' }}; margin-bottom: 0.35rem; cursor: pointer;"
+                         onclick="openQuickEditModal({{ c|tojson }})">
+                      <div style="display: flex; justify-content: space-between; font-weight: 700; font-size: 0.75rem;">
+                        <span>{{ c.course_code }}</span>
+                        <span style="font-size: 0.65rem; background: #e2e8f0; padding: 1px 4px; border-radius: 3px;">{{ c.room if group_by == 'sections' else c.section }}</span>
+                      </div>
+                      <div style="font-size: 0.7rem; color: #475569; margin: 2px 0;">{{ c.faculty_name }}</div>
+                      {% if is_clash %}
+                        <span class="tag-badge red" style="font-size: 0.6rem; padding: 1px 4px;">Conflict</span>
+                      {% endif %}
+                    </div>
+                  {% endfor %}
+                </td>
+              {% endfor %}
+            </tr>
+            <tr style="background: #f1f5f9;">
+              <td style="padding: 0.4rem 0.75rem; font-weight: 700; color: #94a3b8; font-size: 0.75rem; border-bottom: 1.5px dashed #cbd5e1; border-right: 1px solid #cbd5e1;">LUNCH</td>
+              <td colspan="{{ columns|length }}" style="text-align: center; font-weight: 700; color: #64748b; font-size: 0.75rem; letter-spacing: 0.1em; padding: 0.4rem; border-bottom: 1.5px dashed #cbd5e1;">
+                LUNCH BREAK
+              </td>
+            </tr>
+          {% else %}
+            <tr>
+              <td style="padding: 0.75rem; font-weight: 700; color: #1e293b; border-bottom: 1px solid #e2e8f0; border-right: 1px solid #cbd5e1; background: #f8fafc;">{{ slot }}</td>
+              {% for col in columns %}
+                {% set key = (slot, col) %}
+                {% set cell_classes = grid.get(key, []) %}
+                <td style="padding: 0.5rem; vertical-align: top; border-bottom: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; min-height: 80px;">
+                  {% for c in cell_classes %}
+                    {% set is_clash = c.id in clashed_ids %}
+                    <div class="matrix-card {{ 'clash' if is_clash else 'valid' }}" style="padding: 0.5rem; border-radius: 6px; border: 1.5px solid {{ '#ef4444' if is_clash else '#10b981' }}; background: {{ '#fef2f2' if is_clash else '#ecfdf5' }}; margin-bottom: 0.35rem; cursor: pointer;"
+                         onclick="openQuickEditModal({{ c|tojson }})">
+                      <div style="display: flex; justify-content: space-between; font-weight: 700; font-size: 0.75rem;">
+                        <span>{{ c.course_code }}</span>
+                        <span style="font-size: 0.65rem; background: #e2e8f0; padding: 1px 4px; border-radius: 3px;">{{ c.room if group_by == 'sections' else c.section }}</span>
+                      </div>
+                      <div style="font-size: 0.7rem; color: #475569; margin: 2px 0;">{{ c.faculty_name }}</div>
+                      {% if is_clash %}
+                        <span class="tag-badge red" style="font-size: 0.6rem; padding: 1px 4px;">Conflict</span>
+                      {% endif %}
+                    </div>
+                  {% else %}
+                    <div style="color: #cbd5e1; text-align: center; padding: 1rem 0; font-size: 0.8rem; cursor: pointer;"
+                         onclick="quickAddAt('{{ slot }}', '{{ col }}')">
+                      +
+                    </div>
+                  {% endfor %}
+                </td>
+              {% endfor %}
+            </tr>
+          {% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal for Interactive Class Relocation / Quick Edit -->
+<div id="quickEditModal" class="card" style="display: none; position: fixed; top: 15%; left: 50%; transform: translateX(-50%); width: 90%; max-width: 550px; z-index: 1000; box-shadow: 0 10px 25px rgba(0,0,0,0.2); border: 2px solid #2563eb;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+    <h3 id="modalTitle">Quick Reassign / Move Class</h3>
+    <button type="button" class="link-btn danger" style="font-size: 1.25rem;" onclick="closeQuickEditModal()">✕</button>
+  </div>
+
+  <form id="quickEditForm" method="post" action="{{ url_for('interactive_editor_save') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="entry_id" id="qe_entry_id">
+
+    <div class="form-row-2">
+      <div class="form-group">
+        <label>Subject</label>
+        <input type="text" id="qe_course" readonly style="background: #f1f5f9;">
+      </div>
+      <div class="form-group">
+        <label>Section</label>
+        <input type="text" id="qe_section" name="section" readonly style="background: #f1f5f9;">
+      </div>
+    </div>
+
+    <div class="form-row-2">
+      <div class="form-group">
+        <label>Faculty</label>
+        <select id="qe_faculty" name="faculty_name">
+          {% for f in faculty %}<option value="{{ f.name }}">{{ f.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Room</label>
+        <select id="qe_room" name="room">
+          {% for r in rooms %}<option value="{{ r.name }}">{{ r.name }} ({{ r.room_type }}, {{ r.capacity }})</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="form-row-2">
+      <div class="form-group">
+        <label>Day</label>
+        <select id="qe_day" name="day">
+          {% for d in settings.working_days %}<option value="{{ d }}">{{ d }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Time Slot</label>
+        <select id="qe_slot" name="time_slot">
+          {% for s in settings.time_slots %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div style="display: flex; justify-content: space-between; margin-top: 1rem;">
+      <button type="submit" class="btn btn-primary">Save & Re-Check</button>
+      <button type="button" class="btn btn-danger-outline" onclick="deleteFromQuickEdit()">Delete Class</button>
+    </div>
+  </form>
+</div>
+
+<div id="modalOverlay" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 999;" onclick="closeQuickEditModal()"></div>
+
+<script>
+function openQuickEditModal(c) {
+  document.getElementById('qe_entry_id').value = c.id;
+  document.getElementById('qe_course').value = c.course_code + ' - ' + (c.course_name || '');
+  document.getElementById('qe_section').value = c.section;
+  document.getElementById('qe_faculty').value = c.faculty_name;
+  document.getElementById('qe_room').value = c.room;
+  document.getElementById('qe_day').value = c.day;
+  document.getElementById('qe_slot').value = c.time_slot;
+
+  document.getElementById('quickEditModal').style.display = 'block';
+  document.getElementById('modalOverlay').style.display = 'block';
+}
+
+function closeQuickEditModal() {
+  document.getElementById('quickEditModal').style.display = 'none';
+  document.getElementById('modalOverlay').style.display = 'none';
+}
+
+function quickAddAt(slot, col) {
+  const isSection = "{{ group_by }}" === "sections";
+  const url = "{{ url_for('timetable_page') }}?day={{ selected_day }}";
+  location.href = url;
+}
+
+function deleteFromQuickEdit() {
+  const eid = document.getElementById('qe_entry_id').value;
+  if (confirm("Delete this scheduled class?")) {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/timetable/delete/' + eid;
+    const csrf = document.createElement('input');
+    csrf.type = 'hidden';
+    csrf.name = 'csrf_token';
+    csrf.value = '{{ csrf_token() }}';
+    form.appendChild(csrf);
+    document.body.appendChild(form);
+    form.submit();
+  }
+}
+</script>
+
+{% endblock %}
