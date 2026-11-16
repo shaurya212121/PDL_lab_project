@@ -89,5 +89,63 @@ class TestAdminActions(AppTestCase):
         db.execute("DELETE FROM leaves")
 
 
+class TestInputValidation(AppTestCase):
+    """Bad form data must be refused, not saved."""
+
+    def test_holiday_with_bad_date_is_refused(self):
+        self.login()
+        before = len(db.get_holidays())
+        self.client.post("/holidays/add", data={"csrf_token": self.token(), "holiday_date": "not-a-date",
+                                                "name": "Fake day"})
+        self.assertEqual(len(db.get_holidays()), before)
+
+    def test_exam_with_unknown_room_or_same_supervisors_is_refused(self):
+        self.login()
+        base = {"csrf_token": self.token(), "exam_date": "2099-03-02", "time_slot": "Morning",
+                "course_code": "CS301", "room": "LH-101", "sections": "CSE-A",
+                "primary_supervisor": "Dr. Rajesh Sharma", "assistant_supervisor": ""}
+        self.client.post("/exams/add", data={**base, "room": "No Such Room"})
+        self.client.post("/exams/add", data={**base, "assistant_supervisor": "Dr. Rajesh Sharma"})
+        self.client.post("/exams/add", data={**base, "primary_supervisor": "Nobody"})
+        self.assertEqual(len(db.get_exam_sessions()), 0)
+        self.client.post("/exams/add", data=base)  # the valid one is saved
+        self.assertEqual(len(db.get_exam_sessions()), 1)
+        db.execute("DELETE FROM exam_sessions")
+
+    def test_long_term_leave_for_unknown_faculty_is_refused(self):
+        self.login()
+        before = len(db.get_long_term_leaves())
+        self.client.post("/leave/long-term/add", data={"csrf_token": self.token(), "faculty_name": "Ghost",
+                                                       "start_date": "2099-01-01", "end_date": "2099-02-01"})
+        self.assertEqual(len(db.get_long_term_leaves()), before)
+
+    def test_edit_class_with_empty_fields_is_refused(self):
+        self.login()
+        entry = db.get_timetable()[0]
+        self.client.post(f"/timetable/edit/{entry['id']}", data={"csrf_token": self.token()})
+        self.assertEqual(db.get_entry(entry["id"])["faculty_name"], entry["faculty_name"])
+
+    def test_predictor_rejects_negative_hours(self):
+        response = self.client.post("/api/predict-stress", headers={"X-CSRF-Token": self.token()},
+                                    json={"Designation": "Professor", "TeachingHours": -5})
+        self.assertEqual(response.status_code, 400)
+
+
+class TestErrorPages(AppTestCase):
+    def test_unknown_page_shows_friendly_404(self):
+        response = self.client.get("/this/does/not/exist")
+        self.assertEqual(response.status_code, 404)
+        self.assertIn("Page not found", response.get_data(as_text=True))
+
+    def test_unknown_api_route_returns_json(self):
+        response = self.client.get("/api/nothing-here")
+        self.assertEqual(response.status_code, 404)
+        self.assertIn("error", response.get_json())
+
+    def test_drafts_page_is_public_but_hides_admin_buttons(self):
+        html = self.client.get("/versions").get_data(as_text=True)
+        self.assertNotIn("Save Draft Snapshot", html)
+
+
 if __name__ == "__main__":
     unittest.main()
