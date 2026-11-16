@@ -322,3 +322,10 @@ summary { cursor: pointer; font-weight: 600; font-size: 0.85rem; color: var(--pr
   .cell-clash { background: #fff; }
   @page { size: A4 landscape; margin: 12mm; }
 }
+
+/* Small helpers that replace old inline colours, so dark mode works everywhere */
+.info-box {
+  background: var(--primary-light); border: 1px solid var(--border-color); border-radius: var(--radius-md);
+  padding: 0.75rem 1rem; margin-bottom: 0.85rem; font-size: 0.8rem; color: var(--text-main);
+}
+.strong-heading { font-weight: 700; color: var(--primary); }

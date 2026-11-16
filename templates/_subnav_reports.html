@@ -1,0 +1,7 @@
+{# Sub-menu shown on the reports and print pages. #}
+{% set p = request.path %}
+<nav class="hub-subnav no-print">
+  <span class="hub-subnav-label">Reports & Print</span>
+  <a href="{{ url_for('reports_page') }}" class="{{ 'active' if p.startswith('/reports') }}">Analytics & Charts</a>
+  <a href="{{ url_for('print_menu') }}" class="{{ 'active' if p.startswith('/print') }}">Printable Timetables</a>
+</nav>

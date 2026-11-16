@@ -1,0 +1,9 @@
+{# Sub-menu shown on every timetable page (table, editor, generator, drafts). #}
+{% set p = request.path %}
+<nav class="hub-subnav no-print">
+  <span class="hub-subnav-label">Timetable</span>
+  <a href="{{ url_for('timetable_page') }}" class="{{ 'active' if p.startswith('/timetable') }}">Table View</a>
+  {% if is_admin %}<a href="{{ url_for('interactive_editor') }}" class="{{ 'active' if p.startswith('/editor') }}">Visual Editor</a>{% endif %}
+  {% if is_admin %}<a href="{{ url_for('generate_page') }}" class="{{ 'active' if p.startswith('/generate') }}">Auto-Generator</a>{% endif %}
+  <a href="{{ url_for('versions_page') }}" class="{{ 'active' if p.startswith('/versions') }}">Drafts & Rollback</a>
+</nav>

@@ -1,0 +1,7 @@
+{# Sub-menu shown on the leave and holiday pages. #}
+{% set p = request.path %}
+<nav class="hub-subnav no-print">
+  <span class="hub-subnav-label">Leave & Calendar</span>
+  {% if is_admin %}<a href="{{ url_for('leave_page') }}" class="{{ 'active' if p.startswith('/leave') }}">Leaves & Substitutes</a>{% endif %}
+  <a href="{{ url_for('holidays_page') }}" class="{{ 'active' if p.startswith('/holidays') }}">Holidays & Recess</a>
+</nav>

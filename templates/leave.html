@@ -2,12 +2,7 @@
 {% block title %}Leave & Substitutes{% endblock %}
 {% block content %}
 
-{% set p = request.path %}
-<div class="hub-subnav">
-  <span class="hub-subnav-label">Leave & Calendar:</span>
-  <a href="{{ url_for('leave_page') }}" class="{{ 'active' if p.startswith('/leave') }}">Leaves & Substitutions</a>
-  <a href="{{ url_for('holidays_page') }}" class="{{ 'active' if p.startswith('/holidays') }}">Institutional Holidays & Academic Recess</a>
-</div>
+{% include "_subnav_leave.html" %}
 
 <div class="grid-2col">
   <div class="card">
@@ -71,7 +66,7 @@
         <label for="lt_notes">Cover Handover Notes</label>
         <input id="lt_notes" name="notes" placeholder="e.g. Approved maternity leave; reassign course modules and lab supervision">
       </div>
-      <button class="btn btn-primary" style="background: #7c3aed; border-color: #7c3aed;" type="submit">Create Long-Term Cover Plan</button>
+      <button class="btn btn-primary" type="submit">Create Long-Term Cover Plan</button>
     </form>
   </div>
 </div>
@@ -81,7 +76,7 @@
 <div class="card" style="border-top: 4px solid #8b5cf6;">
   <div class="card-header-flex">
     <div>
-      <h3 style="color: #5b21b6;">Active Long-Term & Maternity Cover Plans ({{ long_term_leaves|length }})</h3>
+      <h3 class="purple-heading">Active Long-Term & Maternity Cover Plans ({{ long_term_leaves|length }})</h3>
       <p class="card-desc">Recurring weekly teaching assignments for faculty on extended sabbatical or maternity leave.</p>
     </div>
   </div>
@@ -131,7 +126,7 @@
                     <option value="{{ opt.name }}">{{ opt.name }} ({{ opt.department }}) &bull; {{ opt.current_hours }}/{{ opt.max_hours }} hrs{{ '' if opt.qualified else ' (unmapped)' }}</option>
                   {% endfor %}
                 </select>
-                <button class="btn btn-primary btn-sm" style="background: #7c3aed; border-color: #7c3aed;" type="submit">Assign Cover</button>
+                <button class="btn btn-primary btn-sm" type="submit">Assign Cover</button>
               </form>
             {% endif %}
           </td>
