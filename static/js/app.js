@@ -44,13 +44,65 @@ async function loadReport() {
 
 function renderReport(report) {
   currentReport = report;
-  document.getElementById('statTotalSlots').innerText = currentSchedule.length;
-  document.getElementById('statCriticalConflicts').innerText = report.critical_conflicts;
-  document.getElementById('statWarningConflicts').innerText = report.warning_conflicts;
-  document.getElementById('statBalanceScore').innerText = `${report.workload_balance_score}%`;
+  countUp(document.getElementById('statTotalSlots'), currentSchedule.length);
+  countUp(document.getElementById('statCriticalConflicts'), report.critical_conflicts);
+  countUp(document.getElementById('statWarningConflicts'), report.warning_conflicts);
+  countUp(document.getElementById('statBalanceScore'), report.workload_balance_score, '%', 1);
+  renderHealth(report);
   renderConflicts(report);
   renderWorkload(report.workload_distribution);
   fillFacultyDropdown(report.workload_distribution);
+}
+
+/** Animate a number from 0 up to its value (just for looks). */
+function countUp(el, target, suffix = '', decimals = 0, onStep = null) {
+  const duration = 900;
+  const start = performance.now();
+  function step(now) {
+    const t = Math.min((now - start) / duration, 1);
+    const eased = 1 - Math.pow(1 - t, 3);          // fast at first, slow at the end
+    const value = target * eased;
+    el.innerText = value.toFixed(decimals) + suffix;
+    if (onStep) onStep(value);
+    if (t < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+/**
+ * Health score shown in the big ring on the dashboard.
+ * Start from the Workload Balance Index, then take off 15 points per hard clash
+ * and 3 per warning, so a timetable with clashes can never look "healthy".
+ */
+function healthScore(report) {
+  const score = report.workload_balance_score - 15 * report.critical_conflicts - 3 * report.warning_conflicts;
+  return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+function renderHealth(report) {
+  const ring = document.getElementById('healthRing');
+  if (!ring) return;
+  const score = healthScore(report);
+  let color = '#22c55e', status = 'All clear';
+  if (report.critical_conflicts > 0) { color = '#ef4444'; status = 'Needs fixing'; }
+  else if (score < 75 || report.warning_conflicts > 0) { color = '#f59e0b'; status = 'Review warnings'; }
+  ring.style.setProperty('--ring-color', color);
+  countUp(document.getElementById('ringValue'), score, '', 0, v => ring.style.setProperty('--score', v));
+  const statusEl = document.getElementById('healthStatus');
+  statusEl.innerText = status;
+  statusEl.style.color = color;
+
+  const total = currentSchedule.length;
+  let summary;
+  if (total === 0) {
+    summary = 'The timetable is empty. Add classes, import a file, or load a demo from Settings.';
+  } else if (report.total_conflicts === 0) {
+    summary = `All ${total} classes checked. No clashes, overloads or room problems. Nice work!`;
+  } else {
+    summary = `${total} classes checked: ${report.critical_conflicts} hard clash(es) and ` +
+              `${report.warning_conflicts} warning(s) found. Scroll down to see the suggested fixes.`;
+  }
+  document.getElementById('heroSummary').innerText = summary;
 }
 
 /** One card per problem, with its suggested fix underneath (if there is one). */

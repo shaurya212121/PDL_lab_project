@@ -28,3 +28,38 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 });
+
+/**
+ * Small visual extras used on every page:
+ *  - the thin bar at the top that fills up as you scroll
+ *  - an "x" button on every message, and success messages fade away by themselves
+ */
+document.addEventListener('DOMContentLoaded', () => {
+  const bar = document.getElementById('scrollProgress');
+  if (bar) {
+    const update = () => {
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      bar.style.width = max > 0 ? (window.scrollY / max * 100) + '%' : '0';
+    };
+    window.addEventListener('scroll', update, { passive: true });
+    update();
+  }
+
+  document.querySelectorAll('.main-content > .flash').forEach(msg => {
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'flash-close';
+    close.setAttribute('aria-label', 'Close message');
+    close.innerHTML = '&times;';
+    close.addEventListener('click', () => hideFlash(msg));
+    msg.appendChild(close);
+    if (msg.classList.contains('success')) {
+      setTimeout(() => hideFlash(msg), 6000);
+    }
+  });
+});
+
+function hideFlash(msg) {
+  msg.classList.add('hiding');
+  setTimeout(() => msg.remove(), 300);
+}
