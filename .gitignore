@@ -23,7 +23,7 @@ ENV/
 .DS_Store
 Thumbs.db
 
-# ClashAudit data: the live database, its secret key and backups.
+# Chronos data: the live database, its secret key and backups.
 # These hold the college's real data and must never be uploaded.
 data/
 *.db

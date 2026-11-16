@@ -1,5 +1,5 @@
 """
-ClashAudit - Faculty Workload Distribution & Conflict Detector
+Chronos - Faculty Workload Distribution & Conflict Detector
 Flask web application.
 
 Run:  python app.py      then open  http://127.0.0.1:5000
@@ -51,7 +51,9 @@ def load_secret_key():
         return f.read().strip()
 
 
-app.secret_key = os.environ.get("CLASHAUDIT_SECRET") or load_secret_key()
+# CLASHAUDIT_SECRET is the old name (before the rename) and still works
+app.secret_key = (os.environ.get("CHRONOS_SECRET") or os.environ.get("CLASHAUDIT_SECRET")
+                  or load_secret_key())
 db.init_db()
 
 # ---------------------------------------------------------------------------
@@ -195,6 +197,21 @@ def flash_conflicts_for(entry_id):
     return problems
 
 
+def is_valid_date(text):
+    """True if text is a real date in YYYY-MM-DD form (what <input type="date"> sends)."""
+    try:
+        date.fromisoformat(text)
+        return True
+    except (TypeError, ValueError):
+        return False
+
+
+def missing_class_fields(entry):
+    """Names of the required class fields that were left empty."""
+    required = ["faculty_name", "course_code", "section", "day", "time_slot", "room"]
+    return [f for f in required if not entry[f]]
+
+
 def form_choices():
     """Lists used in the dropdowns of the class form."""
     return {
@@ -293,8 +310,7 @@ def timetable_page():
 @login_required
 def timetable_add():
     entry = entry_from_form()
-    if not all([entry["faculty_name"], entry["course_code"], entry["section"],
-                entry["day"], entry["time_slot"], entry["room"]]):
+    if missing_class_fields(entry):
         flash("Please fill in every field.", "error")
         return redirect(url_for("timetable_page"))
 
@@ -355,7 +371,11 @@ def timetable_edit(entry_id):
     if entry is None:
         abort(404)
     if request.method == "POST":
-        db.update_entry(entry_id, entry_from_form())
+        updated = entry_from_form()
+        if missing_class_fields(updated):
+            flash("Please fill in every field.", "error")
+            return redirect(url_for("timetable_edit", entry_id=entry_id))
+        db.update_entry(entry_id, updated)
         if not flash_conflicts_for(entry_id):
             flash("Class updated. No conflicts.", "success")
         return redirect(url_for("timetable_page"))
@@ -535,8 +555,8 @@ def interactive_editor_save():
     }
 
     db.update_entry(eid, updated)
-    flash_conflicts_for(eid)
-    flash("Updated class allocation.", "success")
+    if not flash_conflicts_for(eid):
+        flash("Updated class allocation. No conflicts.", "success")
     return redirect(url_for("interactive_editor", day=updated["day"], group_by=request.args.get("group_by", "sections")))
 
 
@@ -891,8 +911,12 @@ def long_term_leave_add():
     end_date = request.form.get("end_date", "")
     notes = request.form.get("notes", "")
 
-    if not faculty_name or not start_date or not end_date:
-        flash("Faculty, start date, and end date are required.", "error")
+    if faculty_name not in db.get_faculty_catalog():
+        flash("Please choose a faculty member.", "error")
+        return redirect(url_for("leave_page"))
+
+    if not is_valid_date(start_date) or not is_valid_date(end_date):
+        flash("Please choose a valid start date and end date.", "error")
         return redirect(url_for("leave_page"))
 
     if start_date > end_date:
@@ -917,7 +941,7 @@ def long_term_leave_delete(leave_id):
 def long_term_assign(leave_id):
     timetable_id = form_int("timetable_id")
     cover_faculty = request.form.get("cover_faculty", "")
-    if not cover_faculty:
+    if cover_faculty not in db.get_faculty_catalog():
         flash("Please select a cover faculty member.", "error")
     else:
         db.assign_long_term_cover(leave_id, timetable_id, cover_faculty)
@@ -950,8 +974,8 @@ def holiday_add():
     h_type = request.form.get("holiday_type", "Institutional").strip()
     desc = request.form.get("description", "").strip()
 
-    if not h_date or not name:
-        flash("Date and holiday name are required.", "error")
+    if not is_valid_date(h_date) or not name:
+        flash("A valid date and a holiday name are required.", "error")
     else:
         db.add_holiday(h_date, name, h_type, desc)
         flash(f"Declared institutional holiday '{name}' on {h_date}.", "success")
@@ -1103,6 +1127,23 @@ def exam_add():
         flash("Please select at least one student section to examine.", "error")
         return redirect(url_for("exams_page"))
 
+    # Make sure everything typed in really exists (the form can be edited in the browser)
+    catalog = db.get_faculty_catalog()
+    problem = None
+    if not is_valid_date(exam_date):
+        problem = "Please choose a valid exam date."
+    elif room not in {r["name"] for r in db.get_rooms()}:
+        problem = f"Room '{room}' does not exist."
+    elif primary_supervisor not in catalog:
+        problem = "Please choose a primary supervisor from the faculty list."
+    elif assistant_supervisor and assistant_supervisor not in catalog:
+        problem = "Please choose the assistant supervisor from the faculty list."
+    elif assistant_supervisor == primary_supervisor:
+        problem = "The primary and assistant supervisor must be different people."
+    if problem:
+        flash(problem, "error")
+        return redirect(url_for("exams_page"))
+
     sub_lookup = {s["code"]: s["name"] for s in db.get_subjects()}
     course_name = sub_lookup.get(course_code, "")
 
@@ -1239,7 +1280,7 @@ def download_report():
     timetable, report = run_analysis()
     return send_file(file_io.report_excel(timetable, report), as_attachment=True,
                      mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                     download_name=f"clashaudit_report_{date.today().isoformat()}.xlsx")
+                     download_name=f"chronos_report_{date.today().isoformat()}.xlsx")
 
 
 @app.route("/download/template/<kind>.csv")
@@ -1259,7 +1300,7 @@ def download_template(kind):
 def download_backup():
     """The whole database in one file. Keep a copy somewhere safe."""
     return send_file(db.DB_PATH, as_attachment=True,
-                     download_name=f"clashaudit_backup_{date.today().isoformat()}.db")
+                     download_name=f"chronos_backup_{date.today().isoformat()}.db")
 
 
 # ---------------------------------------------------------------------------
@@ -1379,6 +1420,10 @@ def predict_stress():
         lab = float(data.get("LabHours", 4))
         admin = float(data.get("AdminHours", 2))
         research = float(data.get("ResearchHours", 2))
+        if desig not in db.DESIGNATIONS:
+            raise ValueError("unknown designation")
+        if min(teaching, lab, admin, research) < 0:
+            raise ValueError("hours cannot be negative")
         input_df = pd.DataFrame([{
             "Designation": desig, "TeachingHours": teaching, "LabHours": lab,
             "AdminHours": admin, "ResearchHours": research,
@@ -1422,6 +1467,24 @@ def model_info():
     return jsonify(model_meta)
 
 
+ERROR_TEXT = {
+    400: ("Bad request", "Something in that link or form was not valid. Please go back and try again."),
+    404: ("Page not found", "This page does not exist, or the item was deleted."),
+    500: ("Something went wrong", "The server hit an unexpected problem. Your data is safe; please try again."),
+}
+
+
+@app.errorhandler(400)
+@app.errorhandler(404)
+@app.errorhandler(500)
+def error_page(error):
+    code = getattr(error, "code", 500) or 500
+    if request.path.startswith("/api/"):
+        return jsonify({"error": ERROR_TEXT[code][0]}), code
+    heading, message = ERROR_TEXT[code]
+    return render_template("error.html", code=code, heading=heading, message=message), code
+
+
 @app.errorhandler(413)
 def too_large(_):
     flash("That file is too big (limit 5 MB).", "error")
@@ -1430,6 +1493,6 @@ def too_large(_):
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    print(f"[*] ClashAudit running on http://127.0.0.1:{port}")
+    print(f"[*] Chronos running on http://127.0.0.1:{port}")
     print("[*] Other computers on the same network can open http://<this-computer's-IP>:" + str(port))
     app.run(host="0.0.0.0", port=port, debug=False)

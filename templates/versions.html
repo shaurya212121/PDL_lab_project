@@ -2,14 +2,7 @@
 {% block title %}Timetable Versioning & Rollback History{% endblock %}
 {% block content %}
 
-{% set p = request.path %}
-<div class="hub-subnav">
-  <span class="hub-subnav-label">Timetable Workspace:</span>
-  <a href="{{ url_for('timetable_page') }}" class="{{ 'active' if p.startswith('/timetable') }}">Table View</a>
-  {% if is_admin %}<a href="{{ url_for('interactive_editor') }}" class="{{ 'active' if p.startswith('/editor') }}">Interactive Visual Editor</a>{% endif %}
-  {% if is_admin %}<a href="{{ url_for('generate_page') }}" class="{{ 'active' if p.startswith('/generate') }}">AI Auto-Generator</a>{% endif %}
-  {% if is_admin %}<a href="{{ url_for('versions_page') }}" class="{{ 'active' if p.startswith('/versions') }}">Draft Versions & Rollback</a>{% endif %}
-</div>
+{% include "_subnav_timetable.html" %}
 
 <div class="card">
   <div class="card-header-flex">
@@ -54,6 +47,7 @@
                   <a class="btn btn-secondary-sm" href="{{ url_for('version_diff', version_id=v.id) }}" title="Inspect Visual Diff">
                     Visual Diff
                   </a>
+                  {% if is_admin %}
                   <form method="post" action="{{ url_for('version_rollback', version_id=v.id) }}"
                         data-confirm="Rollback to '{{ v.version_name }}'? This will replace the current active timetable. (An automatic backup will be created)">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -66,6 +60,7 @@
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button class="link-btn danger" type="submit" style="font-size: 0.78rem;">Delete</button>
                   </form>
+                  {% endif %}
                 </div>
               </td>
             </tr>
@@ -81,7 +76,8 @@
       </div>
     </div>
 
-    <!-- Create Snapshot Form -->
+    <!-- Create Snapshot Form (admin only) -->
+    {% if is_admin %}
     <div>
       <h4>Snapshot Current Schedule</h4>
       <p class="card-desc">Capture the complete state of the active timetable before making major changes or midterm adjustments.</p>
@@ -96,7 +92,7 @@
           <label for="v_desc">Description / Purpose</label>
           <input id="v_desc" name="description" placeholder="e.g. Initial allocation before faculty leave reassignments">
         </div>
-        <div style="background: var(--primary-light); border: 1px solid #bfdbfe; border-radius: var(--radius-md); padding: 0.75rem 1rem; margin-bottom: 0.85rem; font-size: 0.8rem; color: #1e40af;">
+        <div class="info-box">
           <strong>Snapshot preview:</strong> Will capture all <strong>{{ current_count }}</strong> classes, lab batch configurations, and room assignments currently in the timetable.
         </div>
         <button class="btn btn-primary" type="submit" {% if current_count == 0 %}disabled{% endif %}>
@@ -104,6 +100,12 @@
         </button>
       </form>
     </div>
+    {% else %}
+    <div>
+      <h4>Want to save or restore a draft?</h4>
+      <p class="card-desc">Anyone can view and compare drafts. <a href="{{ url_for('login', next=request.path) }}">Log in as admin</a> to save a new draft or roll back.</p>
+    </div>
+    {% endif %}
   </div>
 </div>
 

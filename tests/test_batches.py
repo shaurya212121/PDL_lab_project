@@ -1,5 +1,5 @@
 """
-Tests for Lab Batch System in ClashAudit.
+Tests for Lab Batch System in Chronos.
 """
 
 import unittest

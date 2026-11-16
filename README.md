@@ -1,6 +1,10 @@
-# ClashAudit — Faculty Workload Distribution & Conflict Detector
+# Chronos — Faculty Workload Distribution & Conflict Detector
 
-ClashAudit is a web application for colleges that checks a weekly timetable for clashes, keeps every faculty member's teaching load within AICTE / UGC limits, and helps the office arrange substitutes when a teacher is on leave. It is written in Python (Flask, SQLite, pandas, matplotlib and scikit-learn) and runs on any ordinary computer. Other computers on the college network can open it in a browser.
+> **Every class, perfectly in time.**
+>
+> Named after Chronos, the Greek personification of time: the app makes sure the right teacher is in the right room at the right time.
+
+Chronos is a web application for colleges that checks a weekly timetable for clashes, keeps every faculty member's teaching load within AICTE / UGC limits, and helps the office arrange substitutes when a teacher is on leave. It is written in Python (Flask, SQLite, pandas, matplotlib and scikit-learn) and runs on any ordinary computer. Other computers on the college network can open it in a browser.
 
 *Python Data Lab (PDL) mini project.*
 
@@ -18,7 +22,7 @@ A department's timetable has hundreds of entries: faculty, subjects, sections, r
 - a teacher gets **four or five classes back-to-back** without a break
 - when someone is on leave, finding a free and suitable substitute is done by phone calls
 
-ClashAudit finds all of these automatically, explains each one in plain English and suggests a fix.
+Chronos finds all of these automatically, explains each one in plain English and suggests a fix.
 
 ---
 
@@ -55,6 +59,22 @@ ClashAudit finds all of these automatically, explains each one in plain English 
 - **Settings.** College name, working days (Saturday optional), time slots, lunch break, daily and back-to-back limits, weekly caps and the underload threshold.
 - **Backup.** The whole database can be downloaded as one file.
 - **Demo timetables** for presentations: clean, clashes, and overload.
+
+### Planning tools
+- **Visual editor.** A day-by-day grid (columns = sections or rooms). Click an empty cell to add a class, or a class card to move, reassign or delete it. Clashing cards are shown in red.
+- **Auto-generator.** Builds a clash-free timetable from a list of "section needs N hours of subject X" requirements, using backtracking search (a rule-based constraint solver, not machine learning). Labs can be multi-hour continuous blocks and are only placed in lab rooms.
+- **Lab batches.** A section can be split into batches (B1, B2 ...) that attend different labs at the same time without counting as a section clash.
+- **Open electives.** Elective baskets let students from different sections attend a shared elective without false clashes.
+- **Drafts & rollback.** Save named snapshots of the timetable, compare any two side by side (added / removed / changed classes), and roll back. A backup is saved automatically before every rollback.
+- **Long-term leave cover.** For maternity or long medical leave, assign a cover teacher for each of the absent teacher's weekly classes for the whole period.
+- **Holidays & academic calendar.** Declare institutional holidays; leave cannot be marked on a holiday.
+- **Exam supervision.** Schedule exams, pool several sections into one hall, assign two invigilators, and get warnings for supervisor double-booking and hall capacity. Prints a duty roster.
+
+### Look and feel
+- Modern "glass" design with an animated gradient background, light and dark mode (remembers your choice) and a health gauge on the dashboard.
+- The **health score** starts from the Workload Balance Index and loses 15 points for every hard clash and 3 for every warning, so the gauge turns red whenever something must be fixed.
+- Works on phones (the menu scrolls sideways), respects the "reduce motion" setting of the operating system, and prints in plain black and white.
+- Friendly error pages (404 / 400 / 500), and every form checks its input on the server (valid dates, existing faculty and rooms, no negative hours) before saving.
 
 ### Burnout-risk predictor (machine learning)
 A logistic-regression model predicts whether a faculty member is **Underloaded, Balanced or Overloaded** from lecture, lab, admin and research hours, number of subjects and teaching days. The dashboard can fill the form from a teacher's real timetable.
@@ -106,7 +126,7 @@ python app.py
 
 Open **http://127.0.0.1:5000**.
 
-On first start the app creates `data/clashaudit.db` with sample faculty, rooms, sections, subjects and a clean demo timetable.
+On first start the app creates `data/chronos.db` with sample faculty, rooms, sections, subjects and a clean demo timetable.
 
 ### First login
 | Username | Password |
@@ -160,7 +180,10 @@ PDL_lab_project/
 │   ├── file_io.py              Excel/CSV import and export
 │   ├── reports.py              summary numbers and matplotlib charts
 │   ├── scenarios.py            three demo timetables
-│   └── substitutes.py          leave-day substitute finder
+│   ├── substitutes.py          leave-day substitute finder
+│   ├── generator.py            automatic timetable generator (backtracking search)
+│   ├── versioning.py           compares two timetable drafts (visual diff)
+│   └── exam_scheduler.py       exam supervision checks and duty counts
 ├── model/
 │   ├── train.py                trains and compares 4 ML models
 │   ├── workload_model.joblib   saved model (retrained automatically if incompatible)
@@ -170,13 +193,14 @@ PDL_lab_project/
 │   ├── generate_dataset.py     script that generated the dataset
 │   └── samples/                sample import files
 ├── templates/                  HTML pages (Jinja2)
-├── static/css, static/js       styles and dashboard script
+├── static/css/                 style.css (base), pages.css (multi-page), theme.css (gradients, glass, animations)
+├── static/js/                  app.js (dashboard), common.js (every page: confirm, theme, messages)
 ├── tests/                      unit tests (unittest)
 └── data/                       created at runtime: database + secret key (not in Git)
 ```
 
 ### Database tables
-`faculty`, `rooms`, `sections`, `subjects`, `faculty_subjects` (who can teach what), `timetable`, `leaves`, `substitutions`, `settings`, `users`.
+`faculty`, `rooms`, `sections`, `subjects`, `faculty_subjects` (who can teach what), `timetable`, `leaves`, `substitutions`, `long_term_leaves`, `long_term_covers`, `holidays`, `elective_baskets`, `timetable_versions`, `exam_sessions`, `settings`, `users`.
 
 ---
 
@@ -206,7 +230,7 @@ The dataset is synthetic, so the predictor is a guide, not a measurement. The ti
 python -m unittest discover tests -v
 ```
 
-33 tests cover every conflict rule (including the lunch-break case), the fix suggestions, the balance index, the three demo scenarios, file import (column aliases, a single "Subject" column, bad rows, wrong file types), login, CSRF protection, applying fixes, delete protection and the leave page. Tests use a temporary database and never touch `data/`.
+61 tests cover every conflict rule (including the lunch-break case), the fix suggestions, the balance index, the three demo scenarios, file import (column aliases, a single "Subject" column, bad rows, wrong file types), the generator and lab blocks, lab batches, electives, versioning, exams, holidays, long-term leave, login, CSRF protection, applying fixes, delete protection, input validation and the error pages. Tests use a temporary database and never touch `data/`.
 
 Terminal demo:
 ```bash
@@ -218,7 +242,10 @@ python demo_cli.py dataset/samples/timetable_sample.csv   # check any CSV/Excel 
 
 ## 9. Data, security and backup
 
-- All data lives in **one file**: `data/clashaudit.db`. Download a backup from **Settings**. To restore, stop the app and put the backup file back in `data/`.
+- Optional environment variables: `CHRONOS_DB` (database file path), `CHRONOS_SECRET` (Flask secret key), `PORT`.
+- Upgrading from the older "ClashAudit" version needs no changes: an existing `data/clashaudit.db` and the old `CLASHAUDIT_DB` / `CLASHAUDIT_SECRET` variables are still picked up.
+
+- All data lives in **one file**: `data/chronos.db`. Download a backup from **Settings**. To restore, stop the app and put the backup file back in `data/`.
 - `data/` is in `.gitignore`, so the college's real data and the secret key are never uploaded to GitHub.
 - Passwords are hashed with Werkzeug. Every form carries a CSRF token. Uploads are limited to 5 MB.
 - Faculty, rooms, sections and subjects that are still used in the timetable cannot be deleted by accident.
@@ -227,9 +254,9 @@ python demo_cli.py dataset/samples/timetable_sample.csv   # check any CSV/Excel 
 
 ## 10. Limitations & future scope
 
-- Every slot counts as one hour. Two-hour labs are entered as two consecutive slots.
+- Every slot counts as one hour. A two-hour lab is stored as two consecutive slots (the add form and the generator create both at once).
 - One admin account. Separate HOD / faculty logins could be added.
-- The timetable is checked and repaired, not generated from scratch. An automatic timetable generator would be a natural next step.
+- The generator places classes that fit the rules; it does not optimise teacher preferences (e.g. "no first period").
 - Email or SMS alerts to substitutes.
 - Semester-wise history so workload can be compared across terms.
 

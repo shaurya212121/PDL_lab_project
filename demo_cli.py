@@ -1,5 +1,5 @@
 """
-ClashAudit - terminal demo (no browser needed).
+Chronos - terminal demo (no browser needed).
 
     python demo_cli.py              -> runs the demo "clashes" timetable
     python demo_cli.py my_file.csv  -> checks your own timetable file (CSV or Excel)
@@ -64,7 +64,8 @@ def print_report(schedule, report):
 
 def main():
     print("=" * 72)
-    print("   CLASHAUDIT: FACULTY WORKLOAD DISTRIBUTION & CONFLICT DETECTOR")
+    print("   CHRONOS: FACULTY WORKLOAD DISTRIBUTION & CONFLICT DETECTOR")
+    print("   Every class, perfectly in time.")
     print("=" * 72)
     detector, catalog, subjects = demo_detector()
 

@@ -1,0 +1,436 @@
+/* ==========================================================================
+   theme.css - the "neon glass" look.
+   Loaded AFTER style.css and pages.css, so it only changes how things look:
+   gradients, glass cards, glow and small animations. No layout logic here.
+   Everything still works if this file is removed.
+   ========================================================================== */
+
+:root {
+  --grad-a: #6366f1;   /* indigo  */
+  --grad-b: #a855f7;   /* violet  */
+  --grad-c: #ec4899;   /* pink    */
+  --grad-d: #06b6d4;   /* cyan    */
+  --grad-main: linear-gradient(120deg, var(--grad-a), var(--grad-b) 45%, var(--grad-c));
+  --grad-cool: linear-gradient(120deg, var(--grad-d), var(--grad-a));
+
+  --primary: #5b5bf0;
+  --primary-hover: #4338ca;
+  --primary-light: rgba(99, 102, 241, 0.10);
+
+  --glass: rgba(255, 255, 255, 0.72);
+  --glass-strong: rgba(255, 255, 255, 0.88);
+  --glass-border: rgba(255, 255, 255, 0.9);
+  --glass-shadow: 0 10px 40px -12px rgba(76, 29, 149, 0.18), 0 2px 6px rgba(15, 23, 42, 0.04);
+  --bg-main: #f4f3ff;
+  --aurora-1: rgba(99, 102, 241, 0.28);
+  --aurora-2: rgba(236, 72, 153, 0.20);
+  --aurora-3: rgba(6, 182, 212, 0.22);
+  --grid-line: rgba(99, 102, 241, 0.06);
+}
+
+[data-theme="dark"] {
+  --primary: #818cf8;
+  --primary-hover: #a5b4fc;
+  --primary-light: rgba(129, 140, 248, 0.16);
+
+  --glass: rgba(17, 20, 45, 0.62);
+  --glass-strong: rgba(17, 20, 45, 0.85);
+  --glass-border: rgba(129, 140, 248, 0.16);
+  --glass-shadow: 0 10px 40px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.02);
+  --bg-main: #070818;
+  --bg-card: #11142d;
+  --border-color: #262a52;
+  --aurora-1: rgba(99, 102, 241, 0.35);
+  --aurora-2: rgba(236, 72, 153, 0.22);
+  --aurora-3: rgba(6, 182, 212, 0.20);
+  --grid-line: rgba(129, 140, 248, 0.07);
+}
+
+/* ---------- Animated background ("aurora") ---------- */
+body { background: var(--bg-main); position: relative; overflow-x: hidden; }
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: -20%;
+  z-index: -2;
+  background:
+    radial-gradient(40% 35% at 15% 20%, var(--aurora-1), transparent 70%),
+    radial-gradient(35% 30% at 85% 15%, var(--aurora-2), transparent 70%),
+    radial-gradient(45% 40% at 70% 85%, var(--aurora-3), transparent 70%);
+  filter: blur(20px);
+  animation: aurora 22s ease-in-out infinite alternate;
+}
+
+/* faint graph-paper grid on top of the colours */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(ellipse at center, #000 30%, transparent 80%);
+  -webkit-mask-image: radial-gradient(ellipse at center, #000 30%, transparent 80%);
+  pointer-events: none;
+}
+
+@keyframes aurora {
+  0%   { transform: translate(0, 0) rotate(0deg) scale(1); }
+  50%  { transform: translate(3%, -2%) rotate(6deg) scale(1.08); }
+  100% { transform: translate(-3%, 3%) rotate(-4deg) scale(1.02); }
+}
+
+::selection { background: var(--grad-b); color: #fff; }
+
+/* thin top bar that fills up as you scroll (width set by common.js) */
+.scroll-progress {
+  position: fixed; top: 0; left: 0; height: 3px; width: 0;
+  background: var(--grad-main); z-index: 100;
+  box-shadow: 0 0 12px var(--grad-b);
+}
+
+/* ---------- Glass surfaces ---------- */
+.navbar,
+.card,
+.stat-card,
+.hub-subnav,
+.presets-section,
+.summary-tile,
+.workload-item,
+.metric-box,
+.inline-form-card,
+.ltl-plan-card,
+.print-sheet,
+[data-theme="dark"] .navbar,
+[data-theme="dark"] .card,
+[data-theme="dark"] .stat-card,
+[data-theme="dark"] .hub-subnav,
+[data-theme="dark"] .summary-tile,
+[data-theme="dark"] .workload-item,
+[data-theme="dark"] .metric-box,
+[data-theme="dark"] .inline-form-card,
+[data-theme="dark"] .print-sheet {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  box-shadow: var(--glass-shadow);
+}
+
+.card { border-radius: 20px; }
+.footer, [data-theme="dark"] .footer { background: transparent; border-top: 1px solid var(--glass-border); }
+
+/* ---------- Navbar & brand ---------- */
+.navbar { border-left: none; border-right: none; border-top: none; }
+
+.brand-icon {
+  position: relative;
+  background: var(--grad-main);
+  border-radius: 14px;
+  box-shadow: 0 8px 24px -6px rgba(168, 85, 247, 0.6);
+  transition: transform 0.4s cubic-bezier(.34, 1.56, .64, 1);
+}
+.brand:hover .brand-icon { transform: rotate(-10deg) scale(1.08); }
+
+.brand-text h1 { font-size: 1.4rem; letter-spacing: -0.03em; }
+.brand-text .highlight,
+.gradient-text {
+  background: var(--grad-main);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 6s linear infinite;
+}
+@keyframes shimmer { to { background-position: 200% center; } }
+
+.nav-links { gap: 0.35rem; }
+.nav-links a {
+  position: relative;
+  border-radius: 999px;
+  padding: 0.5rem 0.95rem;
+}
+.nav-links a:hover { background: var(--primary-light); color: var(--primary); }
+.nav-links a.active,
+[data-theme="dark"] .nav-links a.active {
+  background: var(--grad-main);
+  color: #fff;
+  box-shadow: 0 6px 18px -6px rgba(168, 85, 247, 0.7);
+}
+
+.theme-toggle-btn {
+  border-radius: 999px;
+  background: var(--glass-strong);
+  transition: transform 0.5s ease;
+}
+.theme-toggle-btn:hover { transform: rotate(180deg); }
+
+/* ---------- Sub navigation (pill switcher) ---------- */
+.hub-subnav { border-radius: 999px; padding: 0.4rem 0.5rem 0.4rem 1rem; }
+.hub-subnav-label {
+  background: var(--grad-main); -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.hub-subnav a { border-radius: 999px; color: var(--text-muted); }
+.hub-subnav a.active,
+[data-theme="dark"] .hub-subnav a.active {
+  background: var(--grad-main);
+  color: #fff;
+  box-shadow: 0 6px 16px -6px rgba(168, 85, 247, 0.7);
+}
+
+/* ---------- Buttons ---------- */
+.btn { border-radius: 12px; position: relative; overflow: hidden; }
+.btn-primary,
+.btn-resolve {
+  background: var(--grad-main);
+  background-size: 160% auto;
+  border: none;
+  color: #fff;
+  box-shadow: 0 8px 20px -8px rgba(168, 85, 247, 0.8);
+  transition: background-position 0.4s ease, transform 0.15s ease, box-shadow 0.2s ease;
+}
+.btn-primary:hover,
+.btn-resolve:hover {
+  background: var(--grad-main);
+  background-size: 160% auto;
+  background-position: right center;
+  transform: translateY(-2px);
+  box-shadow: 0 12px 26px -8px rgba(236, 72, 153, 0.7);
+}
+.btn-primary:active, .btn-resolve:active { transform: translateY(0) scale(0.98); }
+
+/* light sweeping across a primary button on hover */
+.btn-primary::after,
+.btn-resolve::after {
+  content: "";
+  position: absolute; top: 0; left: -75%;
+  width: 50%; height: 100%;
+  background: linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+  transform: skewX(-20deg);
+}
+.btn-primary:hover::after,
+.btn-resolve:hover::after { animation: sweep 0.7s ease; }
+@keyframes sweep { to { left: 130%; } }
+
+.btn-primary:disabled { filter: grayscale(0.7); opacity: 0.6; transform: none; cursor: not-allowed; }
+
+.btn-secondary, .btn-secondary-sm {
+  background: var(--glass-strong);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  text-decoration: none;
+  transition: transform 0.15s ease, border-color 0.2s ease, color 0.2s ease;
+}
+.btn-secondary:hover, .btn-secondary-sm:hover { transform: translateY(-1px); border-color: var(--grad-b); color: var(--primary); }
+
+/* ---------- Form fields ---------- */
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--grad-b) !important;
+  box-shadow: 0 0 0 4px rgba(168, 85, 247, 0.18) !important;
+}
+
+/* ---------- Stat cards ---------- */
+.stat-card {
+  border-radius: 20px;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.25s cubic-bezier(.34, 1.56, .64, 1), box-shadow 0.25s ease;
+}
+.stat-card::before {           /* coloured strip along the top */
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--grad-main);
+}
+.stat-card:hover { transform: translateY(-6px) scale(1.02); box-shadow: 0 24px 40px -18px rgba(99, 102, 241, 0.55); }
+.stat-icon { border-radius: 14px; }
+.stat-val { font-size: 2rem; font-weight: 800; letter-spacing: -0.03em; }
+
+/* ---------- Dashboard hero with the health gauge ---------- */
+.hero {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2rem;
+  align-items: center;
+  padding: 2rem 2.25rem;
+  margin-bottom: 1.5rem;
+  border-radius: 28px;
+  position: relative;
+  overflow: hidden;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  box-shadow: var(--glass-shadow);
+}
+.hero::before {                /* soft glow blob behind the text */
+  content: ""; position: absolute; width: 380px; height: 380px; right: -80px; top: -160px;
+  background: radial-gradient(circle, rgba(236, 72, 153, 0.25), transparent 65%);
+  pointer-events: none;
+}
+.hero-kicker {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  font-size: 0.75rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--primary); background: var(--primary-light);
+  padding: 0.35rem 0.8rem; border-radius: 999px;
+}
+.live-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: #22c55e;
+  box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); animation: pulse 1.8s infinite;
+}
+@keyframes pulse {
+  70%  { box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+}
+.hero h2 { font-size: clamp(1.7rem, 3.2vw, 2.6rem); font-weight: 800; letter-spacing: -0.04em; line-height: 1.1; margin: 0.8rem 0 0.6rem; }
+.hero p.lead { color: var(--text-muted); max-width: 560px; font-size: 1rem; }
+.hero-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-top: 1.25rem; }
+
+/* circular gauge: --score (0-100) is set by app.js, the colour ring is a conic-gradient */
+.health-ring {
+  --score: 0;
+  --ring-color: #22c55e;
+  width: 170px; height: 170px; border-radius: 50%;
+  display: grid; place-items: center;
+  background:
+    radial-gradient(closest-side, var(--glass-strong) 78%, transparent 79% 100%),
+    conic-gradient(var(--ring-color) calc(var(--score) * 1%), rgba(148, 163, 184, 0.2) 0);
+  filter: drop-shadow(0 10px 25px rgba(99, 102, 241, 0.35));
+  position: relative;
+}
+.health-ring .ring-value { font-size: 2.3rem; font-weight: 800; letter-spacing: -0.04em; line-height: 1; text-align: center; }
+.health-ring .ring-label { display: block; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); margin-top: 0.3rem; }
+.health-status { text-align: center; margin-top: 0.75rem; font-weight: 700; font-size: 0.9rem; }
+
+@media (max-width: 720px) {
+  .hero { grid-template-columns: 1fr; padding: 1.5rem; text-align: left; }
+  .hero-gauge { justify-self: center; }
+}
+
+/* ---------- Tabs ---------- */
+.tab-nav { border-bottom: none; gap: 0.4rem; flex-wrap: wrap; }
+.tab-btn { border-radius: 999px; border: 1px solid transparent; }
+.tab-btn:hover { background: var(--primary-light); }
+.tab-btn.active {
+  background: var(--grad-main); color: #fff; border-color: transparent;
+  box-shadow: 0 6px 18px -6px rgba(168, 85, 247, 0.7);
+}
+.tab-content.active { animation: rise 0.45s ease both; }
+
+/* ---------- Conflict cards ---------- */
+.conflict-card { border-radius: 16px; transition: transform 0.2s ease; position: relative; }
+.conflict-card:hover { transform: translateX(4px); }
+.conflict-card.CRITICAL { border-left: 5px solid #ef4444; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); animation: alarm 2.4s ease-in-out infinite; }
+@keyframes alarm {
+  50% { box-shadow: 0 0 22px -4px rgba(239, 68, 68, 0.45); }
+}
+.conflict-card.WARNING { border-left: 5px solid #f59e0b; }
+
+/* ---------- Workload bars ---------- */
+.workload-item { border-radius: 16px; transition: transform 0.2s ease; }
+.workload-item:hover { transform: translateY(-3px); }
+.bar-track, .prob-track { border-radius: 999px; overflow: hidden; }
+.bar-fill, .prob-fill { border-radius: 999px; position: relative; overflow: hidden; transition: width 1s cubic-bezier(.22, 1, .36, 1); }
+.bar-fill.green, .fill-green { background: linear-gradient(90deg, #10b981, #22d3ee); }
+.bar-fill.amber, .fill-amber { background: linear-gradient(90deg, #f59e0b, #facc15); }
+.bar-fill.red,   .fill-red   { background: linear-gradient(90deg, #ef4444, #ec4899); }
+.bar-fill::after, .prob-fill::after {   /* moving shine inside the bar */
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+  transform: translateX(-100%);
+  animation: barshine 2.8s ease-in-out infinite;
+}
+@keyframes barshine { 60%, 100% { transform: translateX(100%); } }
+
+/* ---------- Tables ---------- */
+.data-table, .benchmark-table { border-collapse: separate; border-spacing: 0; }
+.data-table thead th, .benchmark-table thead th {
+  text-transform: uppercase; font-size: 0.72rem; letter-spacing: 0.08em;
+}
+.data-table tbody tr, .benchmark-table tbody tr { transition: background 0.15s ease; }
+.data-table tbody tr:hover td { background: var(--primary-light); }
+.tag-badge { border-radius: 999px; }
+
+/* ---------- Flash messages become toasts ---------- */
+.flash {
+  border-radius: 14px;
+  position: relative;
+  padding-right: 2.5rem;
+  border-width: 1px 1px 1px 5px;
+  backdrop-filter: blur(10px);
+  animation: slidein 0.45s cubic-bezier(.22, 1, .36, 1) both;
+}
+.flash.success { border-left-color: #10b981; }
+.flash.error   { border-left-color: #ef4444; }
+.flash.warning { border-left-color: #f59e0b; }
+.flash-close {
+  position: absolute; right: 0.6rem; top: 50%; transform: translateY(-50%);
+  border: none; background: none; cursor: pointer; font-size: 1.2rem; line-height: 1;
+  color: inherit; opacity: 0.6;
+}
+.flash-close:hover { opacity: 1; }
+.flash.hiding { animation: slideout 0.3s ease forwards; }
+@keyframes slidein { from { opacity: 0; transform: translateY(-12px) scale(0.98); } }
+@keyframes slideout { to { opacity: 0; transform: translateX(30px); height: 0; margin: 0; padding-top: 0; padding-bottom: 0; } }
+
+/* ---------- Entrance animation for the page ---------- */
+@keyframes rise { from { opacity: 0; transform: translateY(18px); } }
+.main-content > * { animation: rise 0.55s cubic-bezier(.22, 1, .36, 1) both; }
+.main-content > *:nth-child(2) { animation-delay: 0.06s; }
+.main-content > *:nth-child(3) { animation-delay: 0.12s; }
+.main-content > *:nth-child(4) { animation-delay: 0.18s; }
+.main-content > *:nth-child(n+5) { animation-delay: 0.24s; }
+.stats-grid .stat-card { animation: rise 0.6s cubic-bezier(.22, 1, .36, 1) both; }
+.stats-grid .stat-card:nth-child(2) { animation-delay: 0.08s; }
+.stats-grid .stat-card:nth-child(3) { animation-delay: 0.16s; }
+.stats-grid .stat-card:nth-child(4) { animation-delay: 0.24s; }
+
+/* ---------- Error page ---------- */
+.error-page { text-align: center; padding: 4rem 1rem; }
+.error-code {
+  font-size: clamp(5rem, 18vw, 10rem); font-weight: 800; letter-spacing: -0.06em; line-height: 1;
+  background: var(--grad-main); -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: float 4s ease-in-out infinite;
+}
+@keyframes float { 50% { transform: translateY(-12px); } }
+.error-page p { color: var(--text-muted); margin: 1rem auto 1.5rem; max-width: 460px; }
+
+/* ---------- Login card ---------- */
+.narrow-card { border-radius: 24px; }
+.narrow-card h3 { font-size: 1.5rem; letter-spacing: -0.03em; }
+
+/* ---------- Scrollbar ---------- */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: linear-gradient(var(--grad-a), var(--grad-c)); border-radius: 999px; border: 2px solid var(--bg-main); }
+
+/* ---------- People who prefer less motion get a calm version ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+/* ---------- Printing: plain black on white, no effects ---------- */
+@media print {
+  body::before, body::after, .scroll-progress { display: none !important; }
+  body { background: #fff !important; }
+  .card, .print-sheet, .main-content > * {
+    background: #fff !important; box-shadow: none !important; border-color: #ddd !important;
+    backdrop-filter: none !important; animation: none !important;
+  }
+  .print-sheet { border: none !important; padding: 0 !important; }
+}
+
+/* ---------- Phones: menu scrolls sideways instead of filling the screen ---------- */
+@media (max-width: 720px) {
+  .navbar { position: relative; padding: 0.75rem 1rem; }
+  .brand-text .subtitle { display: none; }
+  .nav-links { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 0.35rem; scrollbar-width: none; }
+  .nav-links::-webkit-scrollbar { display: none; }
+  .nav-links a { white-space: nowrap; }
+  .hub-subnav { border-radius: 18px; }
+}
+
+/* links styled as buttons should not look like links */
+a.btn, a.btn:hover { text-decoration: none; }
+a.btn-primary, a.btn-primary:hover { color: #fff; }

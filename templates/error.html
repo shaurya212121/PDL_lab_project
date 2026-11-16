@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}{{ code }}{% endblock %}
+{% block content %}
+<div class="error-page">
+  <div class="error-code">{{ code }}</div>
+  <h3>{{ heading }}</h3>
+  <p>{{ message }}</p>
+  <div class="btn-row" style="justify-content: center;">
+    <a class="btn btn-primary" href="{{ url_for('home') }}">Back to dashboard</a>
+    <a class="btn btn-secondary" href="{{ url_for('timetable_page') }}">Open timetable</a>
+  </div>
+</div>
+{% endblock %}

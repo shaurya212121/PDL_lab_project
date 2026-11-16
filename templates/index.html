@@ -2,6 +2,25 @@
 {% block title %}Dashboard{% endblock %}
 {% block content %}
 
+<section class="hero">
+  <div>
+    <span class="hero-kicker"><span class="live-dot"></span> Live timetable check</span>
+    <h2>Right teacher. Right room.<br><span class="gradient-text">Right time.</span></h2>
+    <p class="lead" id="heroSummary">Checking {{ settings.college_name }}'s weekly timetable for clashes, overloads and room problems…</p>
+    <div class="hero-actions">
+      <a class="btn btn-primary" href="{{ url_for('timetable_page') }}">Open timetable</a>
+      <a class="btn btn-secondary" href="{{ url_for('reports_page') }}">See reports</a>
+      {% if is_admin %}<a class="btn btn-secondary" href="{{ url_for('leave_page') }}">Mark a leave</a>{% endif %}
+    </div>
+  </div>
+  <div class="hero-gauge">
+    <div class="health-ring" id="healthRing" role="img" aria-label="Timetable health score">
+      <div><span class="ring-value" id="ringValue">–</span><span class="ring-label">Health</span></div>
+    </div>
+    <div class="health-status" id="healthStatus">&nbsp;</div>
+  </div>
+</section>
+
 <div class="stats-grid">
   <div class="stat-card">
     <span class="stat-icon icon-blue">

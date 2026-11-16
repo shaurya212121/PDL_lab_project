@@ -2,14 +2,7 @@
 {% block title %}Visual Diff: {{ version.version_name }} vs {{ target_name }}{% endblock %}
 {% block content %}
 
-{% set p = request.path %}
-<div class="hub-subnav">
-  <span class="hub-subnav-label">Timetable Workspace:</span>
-  <a href="{{ url_for('timetable_page') }}" class="{{ 'active' if p.startswith('/timetable') }}">Table View</a>
-  {% if is_admin %}<a href="{{ url_for('interactive_editor') }}" class="{{ 'active' if p.startswith('/editor') }}">Interactive Visual Editor</a>{% endif %}
-  {% if is_admin %}<a href="{{ url_for('generate_page') }}" class="{{ 'active' if p.startswith('/generate') }}">AI Auto-Generator</a>{% endif %}
-  {% if is_admin %}<a href="{{ url_for('versions_page') }}" class="{{ 'active' if p.startswith('/versions') }}">Draft Versions & Rollback</a>{% endif %}
-</div>
+{% include "_subnav_timetable.html" %}
 
 <div class="card">
   <div class="card-header-flex">
@@ -125,7 +118,7 @@
           <!-- Left: Old Snapshot Slot -->
           <td>
             {% if d.old %}
-              <div style="font-weight: 700; color: #1e3a8a;">
+              <div class="strong-heading">
                 {{ d.old.course_code }}
                 <span style="font-weight: normal; font-size: 0.8rem; color: var(--text-muted);">{{ d.old.course_name or '' }}</span>
               </div>
@@ -154,14 +147,14 @@
                 {% endfor %}
               </div>
             {% else %}
-              <span class="tag-badge" style="background: #e2e8f0; color: #475569; font-size: 0.78rem;">= Identical</span>
+              <span class="tag-badge grey" style="font-size: 0.78rem;">= Identical</span>
             {% endif %}
           </td>
 
           <!-- Right: New/Target Slot -->
           <td>
             {% if d.new %}
-              <div style="font-weight: 700; color: #1e3a8a;">
+              <div class="strong-heading">
                 {{ d.new.course_code }}
                 <span style="font-weight: normal; font-size: 0.8rem; color: var(--text-muted);">{{ d.new.course_name or '' }}</span>
               </div>

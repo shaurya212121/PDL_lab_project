@@ -1,5 +1,5 @@
 """
-Automated Timetable Generator for ClashAudit.
+Automated Timetable Generator for Chronos.
 
 Uses Constraint Satisfaction Problem (CSP) formulation solved via
 backtracking search with Minimum Remaining Values (MRV), Degree Heuristic,
