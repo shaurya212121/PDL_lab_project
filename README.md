@@ -1,6 +1,10 @@
-# ClashAudit — Faculty Workload Distribution & Conflict Detector
+# Chronos — Faculty Workload Distribution & Conflict Detector
 
-ClashAudit is a web application for colleges that checks a weekly timetable for clashes, keeps every faculty member's teaching load within AICTE / UGC limits, and helps the office arrange substitutes when a teacher is on leave. It is written in Python (Flask, SQLite, pandas, matplotlib and scikit-learn) and runs on any ordinary computer. Other computers on the college network can open it in a browser.
+> **Every class, perfectly in time.**
+>
+> Named after Chronos, the Greek personification of time: the app makes sure the right teacher is in the right room at the right time.
+
+Chronos is a web application for colleges that checks a weekly timetable for clashes, keeps every faculty member's teaching load within AICTE / UGC limits, and helps the office arrange substitutes when a teacher is on leave. It is written in Python (Flask, SQLite, pandas, matplotlib and scikit-learn) and runs on any ordinary computer. Other computers on the college network can open it in a browser.
 
 *Python Data Lab (PDL) mini project.*
 
@@ -18,7 +22,7 @@ A department's timetable has hundreds of entries: faculty, subjects, sections, r
 - a teacher gets **four or five classes back-to-back** without a break
 - when someone is on leave, finding a free and suitable substitute is done by phone calls
 
-ClashAudit finds all of these automatically, explains each one in plain English and suggests a fix.
+Chronos finds all of these automatically, explains each one in plain English and suggests a fix.
 
 ---
 
@@ -122,7 +126,7 @@ python app.py
 
 Open **http://127.0.0.1:5000**.
 
-On first start the app creates `data/clashaudit.db` with sample faculty, rooms, sections, subjects and a clean demo timetable.
+On first start the app creates `data/chronos.db` with sample faculty, rooms, sections, subjects and a clean demo timetable.
 
 ### First login
 | Username | Password |
@@ -238,7 +242,10 @@ python demo_cli.py dataset/samples/timetable_sample.csv   # check any CSV/Excel 
 
 ## 9. Data, security and backup
 
-- All data lives in **one file**: `data/clashaudit.db`. Download a backup from **Settings**. To restore, stop the app and put the backup file back in `data/`.
+- Optional environment variables: `CHRONOS_DB` (database file path), `CHRONOS_SECRET` (Flask secret key), `PORT`.
+- Upgrading from the older "ClashAudit" version needs no changes: an existing `data/clashaudit.db` and the old `CLASHAUDIT_DB` / `CLASHAUDIT_SECRET` variables are still picked up.
+
+- All data lives in **one file**: `data/chronos.db`. Download a backup from **Settings**. To restore, stop the app and put the backup file back in `data/`.
 - `data/` is in `.gitignore`, so the college's real data and the secret key are never uploaded to GitHub.
 - Passwords are hashed with Werkzeug. Every form carries a CSRF token. Uploads are limited to 5 MB.
 - Faculty, rooms, sections and subjects that are still used in the timetable cannot be deleted by accident.

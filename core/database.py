@@ -1,8 +1,8 @@
 """
-Database layer for ClashAudit.
+Database layer for Chronos.
 
 We use SQLite, which comes built into Python (import sqlite3), so nothing extra
-has to be installed. All data lives in ONE file: data/clashaudit.db
+has to be installed. All data lives in ONE file: data/chronos.db
 
 Tables
 ------
@@ -25,10 +25,17 @@ from datetime import datetime
 from werkzeug.security import generate_password_hash
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DEFAULT_DB_PATH = os.path.join(BASE_DIR, "data", "clashaudit.db")
+DEFAULT_DB_PATH = os.path.join(BASE_DIR, "data", "chronos.db")
+
+# The project used to be called "ClashAudit". If an old database file is
+# still there (and no new one yet), keep using it so no data is lost.
+OLD_DB_PATH = os.path.join(BASE_DIR, "data", "clashaudit.db")
+if not os.path.exists(DEFAULT_DB_PATH) and os.path.exists(OLD_DB_PATH):
+    DEFAULT_DB_PATH = OLD_DB_PATH
 
 # The database file can be changed (tests use a temporary file).
-DB_PATH = os.environ.get("CLASHAUDIT_DB", DEFAULT_DB_PATH)
+# CLASHAUDIT_DB is the old name of the variable and still works.
+DB_PATH = os.environ.get("CHRONOS_DB") or os.environ.get("CLASHAUDIT_DB") or DEFAULT_DB_PATH
 
 DESIGNATIONS = ["Professor", "Associate Professor", "Assistant Professor"]
 ROOM_TYPES = ["Lecture Hall", "Lab"]

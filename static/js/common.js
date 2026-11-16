@@ -21,10 +21,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
     if (isDark) {
       document.documentElement.removeAttribute('data-theme');
-      localStorage.setItem('clashaudit_theme', 'light');
+      localStorage.setItem('chronos_theme', 'light');
     } else {
       document.documentElement.setAttribute('data-theme', 'dark');
-      localStorage.setItem('clashaudit_theme', 'dark');
+      localStorage.setItem('chronos_theme', 'dark');
     }
   });
 });

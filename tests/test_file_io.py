@@ -3,8 +3,8 @@ import os
 import tempfile
 
 # Use a temporary database so the tests never touch your real data in data/
-os.environ.setdefault("CLASHAUDIT_DB", os.path.join(tempfile.mkdtemp(prefix="clashaudit_test_"), "test.db"))
-os.environ.setdefault("CLASHAUDIT_SECRET", "test-secret")
+os.environ.setdefault("CHRONOS_DB", os.path.join(tempfile.mkdtemp(prefix="chronos_test_"), "test.db"))
+os.environ.setdefault("CHRONOS_SECRET", "test-secret")
 
 import io
 import unittest

@@ -1,5 +1,5 @@
 /**
- * ClashAudit - dashboard page script.
+ * Chronos - dashboard page script.
  * Loads the analysis from the server (/api/report) and shows it.
  */
 

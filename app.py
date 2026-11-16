@@ -1,5 +1,5 @@
 """
-ClashAudit - Faculty Workload Distribution & Conflict Detector
+Chronos - Faculty Workload Distribution & Conflict Detector
 Flask web application.
 
 Run:  python app.py      then open  http://127.0.0.1:5000
@@ -51,7 +51,9 @@ def load_secret_key():
         return f.read().strip()
 
 
-app.secret_key = os.environ.get("CLASHAUDIT_SECRET") or load_secret_key()
+# CLASHAUDIT_SECRET is the old name (before the rename) and still works
+app.secret_key = (os.environ.get("CHRONOS_SECRET") or os.environ.get("CLASHAUDIT_SECRET")
+                  or load_secret_key())
 db.init_db()
 
 # ---------------------------------------------------------------------------
@@ -1278,7 +1280,7 @@ def download_report():
     timetable, report = run_analysis()
     return send_file(file_io.report_excel(timetable, report), as_attachment=True,
                      mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                     download_name=f"clashaudit_report_{date.today().isoformat()}.xlsx")
+                     download_name=f"chronos_report_{date.today().isoformat()}.xlsx")
 
 
 @app.route("/download/template/<kind>.csv")
@@ -1298,7 +1300,7 @@ def download_template(kind):
 def download_backup():
     """The whole database in one file. Keep a copy somewhere safe."""
     return send_file(db.DB_PATH, as_attachment=True,
-                     download_name=f"clashaudit_backup_{date.today().isoformat()}.db")
+                     download_name=f"chronos_backup_{date.today().isoformat()}.db")
 
 
 # ---------------------------------------------------------------------------
@@ -1491,6 +1493,6 @@ def too_large(_):
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    print(f"[*] ClashAudit running on http://127.0.0.1:{port}")
+    print(f"[*] Chronos running on http://127.0.0.1:{port}")
     print("[*] Other computers on the same network can open http://<this-computer's-IP>:" + str(port))
     app.run(host="0.0.0.0", port=port, debug=False)

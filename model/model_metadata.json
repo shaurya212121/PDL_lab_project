@@ -1,5 +1,5 @@
 {
-  "model_name": "ClashAudit Workload Stress Classifier",
+  "model_name": "Chronos Workload Stress Classifier",
   "algorithm": "Logistic Regression Multi-Class Classifier",
   "accuracy": 96.25,
   "classes": [
