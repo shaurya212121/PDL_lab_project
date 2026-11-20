@@ -201,8 +201,8 @@
             <label for="ex_pri">Primary Supervisor (Invigilator)</label>
             <select id="ex_pri" name="primary_supervisor" required>
               <option value="">-- Choose Faculty --</option>
-              {% for f in faculty.values() %}
-                <option value="{{ f.name }}">{{ f.name }} ({{ f.department }} - {{ f.designation }})</option>
+              {% for name, f in faculty.items() %}
+                <option value="{{ name }}">{{ name }} ({{ f.department }} - {{ f.designation }})</option>
               {% endfor %}
             </select>
           </div>
@@ -210,8 +210,8 @@
             <label for="ex_asst">Assistant Supervisor (Reliever / Co-Invigilator)</label>
             <select id="ex_asst" name="assistant_supervisor">
               <option value="">-- None (Single Invigilator) --</option>
-              {% for f in faculty.values() %}
-                <option value="{{ f.name }}">{{ f.name }} ({{ f.department }} - {{ f.designation }})</option>
+              {% for name, f in faculty.items() %}
+                <option value="{{ name }}">{{ name }} ({{ f.department }} - {{ f.designation }})</option>
               {% endfor %}
             </select>
           </div>
