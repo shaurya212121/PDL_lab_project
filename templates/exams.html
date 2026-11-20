@@ -8,7 +8,7 @@
       <h3>Exam Supervision & Multi-Class Cohort Invigilation Planner</h3>
       <p class="card-desc">Schedule examinations, pool multiple classes into shared halls (e.g. CSE-A + CSE-B combined), prevent supervisor double-booking, and verify hall capacities.</p>
     </div>
-    <div style="display: flex; gap: 0.5rem; align-items: center;">
+    <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
       <a class="btn btn-secondary-sm" href="{{ url_for('exam_print') }}" target="_blank">
         Print Duty Roster
       </a>
@@ -177,9 +177,9 @@
             <span id="pooled-counter" class="tag-badge purple" style="font-size: 0.75rem;">0 students selected</span>
           </div>
           <p class="card-desc" style="margin-bottom: 0.5rem;">Select multiple classes taking the exam together in the same hall:</p>
-          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.4rem;">
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.4rem;">
             {% for sec in sections %}
-            <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; cursor: pointer;">
+            <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; cursor: pointer; min-width: 0; word-break: break-word;">
               <input type="checkbox" name="sections" value="{{ sec.name }}" data-strength="{{ sec.strength }}" onchange="updatePooledCount()">
               <span><strong>{{ sec.name }}</strong> ({{ sec.department }}, {{ sec.strength }} students)</span>
             </label>
