@@ -1,9 +1,3 @@
-"""
-Import and export of files (CSV and Excel) using pandas.
-
-Import : read a timetable or faculty list that the college already has in Excel/CSV.
-Export : download the timetable and the full conflict report.
-"""
 
 import io
 import re
@@ -11,8 +5,6 @@ import pandas as pd
 
 from core.database import DESIGNATIONS
 
-# Different colleges name their columns differently. We map common names
-# to the names our program uses. Keys are already lower-case with underscores.
 COLUMN_ALIASES = {
     "faculty": "faculty_name", "teacher": "faculty_name", "faculty_name": "faculty_name",
     "teacher_name": "faculty_name", "name": "name",
@@ -32,9 +24,7 @@ COLUMN_ALIASES = {
 
 TIMETABLE_REQUIRED = ["faculty_name", "course_code", "section", "day", "time_slot", "room"]
 
-
 def read_table(uploaded_file):
-    """Read an uploaded .csv / .xlsx file into a pandas DataFrame with clean column names."""
     filename = (uploaded_file.filename or "").lower()
     if filename.endswith(".csv"):
         df = pd.read_csv(uploaded_file, dtype=str)
@@ -49,26 +39,17 @@ def read_table(uploaded_file):
         clean[col] = COLUMN_ALIASES.get(key, key)
     df = df.rename(columns=clean)
     df = df.fillna("")
-    # remove extra spaces from every cell
     for col in df.columns:
         df[col] = df[col].astype(str).str.strip()
-    # drop rows that are completely empty
     df = df[(df != "").any(axis=1)]
     return df
 
-
 def normalize_slot(text):
-    """'9:00-10:00', '09:00 - 10:00' and '9:00 -10:00' should all be treated the same."""
     text = str(text).replace(" ", "")
     return re.sub(r"(^|-)0(\d)", r"\1\2", text)
 
-
 def parse_timetable(df, settings, faculty_catalog, subjects):
-    """Turn the rows of an uploaded timetable into class entries.
-    Returns (entries, errors). Rows with errors are skipped."""
     if "course_code" not in df.columns and "course_name" in df.columns:
-        # Many sheets have just one "Subject" column holding either a code (CS301)
-        # or a name (Operating Systems). Turn known names into their codes.
         name_to_code = {s["name"].lower(): s["code"] for s in subjects}
         df = df.copy()
         df["course_code"] = [name_to_code.get(v.lower(), v) for v in df["course_name"]]
@@ -81,12 +62,12 @@ def parse_timetable(df, settings, faculty_catalog, subjects):
 
     slot_lookup = {normalize_slot(s): s for s in settings["time_slots"]}
     day_lookup = {d.lower(): d for d in settings["working_days"]}
-    day_lookup.update({d[:3].lower(): d for d in settings["working_days"]})  # 'Mon' -> 'Monday'
+    day_lookup.update({d[:3].lower(): d for d in settings["working_days"]})
     subject_lookup = {s["code"]: s for s in subjects}
 
     entries, errors = [], []
     for position, row in enumerate(df.to_dict("records")):
-        row_no = position + 2  # +2 because row 1 in the file is the header
+        row_no = position + 2
         problems = [f"'{c}' is empty" for c in TIMETABLE_REQUIRED if not row.get(c)]
 
         day = day_lookup.get(str(row.get("day", "")).lower())
@@ -119,9 +100,7 @@ def parse_timetable(df, settings, faculty_catalog, subjects):
         })
     return entries, errors
 
-
 def match_designation(text):
-    """Accept 'Asst. Prof', 'assistant professor', 'Prof', etc."""
     t = str(text).lower()
     if "assoc" in t:
         return "Associate Professor"
@@ -131,9 +110,7 @@ def match_designation(text):
         return "Professor"
     return None
 
-
 def parse_faculty(df):
-    """Rows of an uploaded faculty list -> list of dicts. Returns (rows, errors)."""
     if "name" not in df.columns and "faculty_name" in df.columns:
         df = df.rename(columns={"faculty_name": "name"})
     missing = [c for c in ["name", "department", "designation"] if c not in df.columns]
@@ -158,21 +135,14 @@ def parse_faculty(df):
         })
     return rows, errors
 
-
-# ---------------------------------------------------------------------------
-# Export
-# ---------------------------------------------------------------------------
 EXPORT_COLUMNS = ["day", "time_slot", "section", "course_code", "course_name",
                   "faculty_name", "department", "room"]
-
 
 def timetable_csv(timetable):
     df = pd.DataFrame(timetable, columns=EXPORT_COLUMNS)
     return df.to_csv(index=False).encode("utf-8")
 
-
 def report_excel(timetable, report):
-    """One Excel file with 4 sheets: Timetable, Conflicts, Workload, Suggestions."""
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         pd.DataFrame(timetable, columns=EXPORT_COLUMNS).to_excel(writer, sheet_name="Timetable", index=False)
@@ -189,7 +159,6 @@ def report_excel(timetable, report):
         suggestions = pd.DataFrame(report["suggestions"], columns=["course", "action", "reason"])
         suggestions.to_excel(writer, sheet_name="Suggestions", index=False)
 
-        # make columns wide enough to read
         for sheet in writer.sheets.values():
             for column in sheet.columns:
                 longest = max(len(str(cell.value or "")) for cell in column)
@@ -197,9 +166,7 @@ def report_excel(timetable, report):
     output.seek(0)
     return output
 
-
 def timetable_template():
-    """A sample file the college can fill in and upload."""
     sample = pd.DataFrame([
         {"faculty_name": "Dr. Rajesh Sharma", "department": "CSE", "course_code": "CS301",
          "course_name": "Operating Systems", "section": "CSE-A", "day": "Monday",
@@ -209,7 +176,6 @@ def timetable_template():
          "time_slot": "02:00 - 03:00", "room": "Lab-1"},
     ])
     return sample.to_csv(index=False).encode("utf-8")
-
 
 def faculty_template():
     sample = pd.DataFrame([

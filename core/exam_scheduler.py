@@ -1,16 +1,7 @@
-"""
-Exam Supervision & Multi-Class Cohort Scheduling Engine.
-Validates multi-class pooling, supervisor double-booking, hall capacities, and invigilation fair distribution.
-"""
 
 from core import database as db
 
-
 def check_exam_conflicts(sessions=None):
-    """
-    Check all exam sessions for scheduling conflicts, supervisor double-bookings,
-    and hall capacity overflows.
-    """
     if sessions is None:
         sessions = db.get_exam_sessions()
 
@@ -20,7 +11,6 @@ def check_exam_conflicts(sessions=None):
 
     conflicts = []
 
-    # 1. Holiday collision check
     for s in sessions:
         h_date = s.get("exam_date", "")
         if h_date in holidays:
@@ -32,7 +22,6 @@ def check_exam_conflicts(sessions=None):
                 "message": f"Exam '{s['session_title']}' ({s['course_code']}) is scheduled on {h_date}, which is declared as '{holidays[h_date]}'."
             })
 
-    # 2. Hall capacity check
     for s in sessions:
         r_name = s.get("room", "")
         cap = rooms.get(r_name, 72)
@@ -46,14 +35,12 @@ def check_exam_conflicts(sessions=None):
                 "message": f"Combined classes ({s['sections']}) have {total_students} students, but room {r_name} only accommodates {cap} candidates."
             })
 
-    # 3. Pairwise clash checks: supervisor clashes, room collisions, section clashes
     n = len(sessions)
     for i in range(n):
         s1 = sessions[i]
         d1 = s1.get("exam_date")
         t1 = s1.get("time_slot")
 
-        # Supervisor on leave check
         for role, fac in [("Primary Supervisor", s1.get("primary_supervisor")),
                           ("Assistant Supervisor", s1.get("assistant_supervisor"))]:
             if fac and (fac, d1) in leaves:
@@ -73,7 +60,6 @@ def check_exam_conflicts(sessions=None):
             if d1 != d2 or t1 != t2:
                 continue
 
-            # a) Room double-booking (two different exams in the same room at the same time)
             if s1.get("room") == s2.get("room"):
                 conflicts.append({
                     "type": "ROOM_DOUBLE_BOOKING",
@@ -83,7 +69,6 @@ def check_exam_conflicts(sessions=None):
                     "message": f"Room {s1['room']} is booked simultaneously for '{s1['session_title']}' ({s1['course_code']}) and '{s2['session_title']}' ({s2['course_code']}) on {d1} at {t1}."
                 })
 
-            # b) Supervisor double-booking
             team1 = {s1.get("primary_supervisor"), s1.get("assistant_supervisor")} - {"", None}
             team2 = {s2.get("primary_supervisor"), s2.get("assistant_supervisor")} - {"", None}
             clashing_supervisors = team1 & team2
@@ -97,7 +82,6 @@ def check_exam_conflicts(sessions=None):
                     "message": f"{fac} is assigned to supervise two different exam halls ({s1['room']} and {s2['room']}) at the same time on {d1} ({t1})."
                 })
 
-            # c) Section exam clash
             sec1 = {x.strip() for x in s1.get("sections", "").split(",") if x.strip()}
             sec2 = {x.strip() for x in s2.get("sections", "").split(",") if x.strip()}
             clashing_sections = sec1 & sec2
@@ -122,11 +106,7 @@ def check_exam_conflicts(sessions=None):
         "conflicts": conflicts,
     }
 
-
 def get_invigilation_roster_stats():
-    """
-    Calculate supervision duties per faculty and analyze allocation balance.
-    """
     stats = db.get_supervisor_duty_stats()
     total_duties = sum(f["total_duties"] for f in stats)
     num_fac = len(stats) if stats else 1

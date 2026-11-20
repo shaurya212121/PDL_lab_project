@@ -1,33 +1,7 @@
-"""
-Faculty Workload Distribution & Conflict Detection Engine
-
-This file does NOT talk to the database. It receives plain Python lists and
-dictionaries and returns a report. That keeps it easy to test (see tests/).
-
-What it checks
---------------
-Hard conflicts (CRITICAL - the timetable cannot work like this):
-  1. Faculty double-booking  - same teacher, two classes, same day & slot
-  2. Room double-booking     - same room, two classes, same day & slot
-  3. Section clash           - same student section, two classes, same day & slot
-
-Soft warnings (WARNING - possible, but should be fixed):
-  4. Daily limit             - too many classes for a teacher in one day
-  5. Consecutive fatigue     - too many back-to-back classes (lunch break resets the count)
-  6. Weekly overload         - weekly hours above the AICTE/UGC cap
-  7. Lab in a lecture hall   - a lab subject scheduled in a non-lab room
-  8. Room too small          - section strength is more than room capacity
-  9. Not qualified           - teacher is not listed as able to teach that subject
- 10. Unknown data            - faculty/room/section/day/slot that is not registered
-
-It also gives suggestions to fix conflicts (another teacher, another room,
-or another free time slot).
-"""
 
 from collections import defaultdict
 import numpy as np
 
-# Used only when no settings are passed in (e.g. quick tests / CLI demo)
 DEFAULT_RULES = {
     "working_days": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
     "time_slots": ["09:00 - 10:00", "10:00 - 11:00", "11:00 - 12:00", "12:00 - 01:00",
@@ -38,7 +12,6 @@ DEFAULT_RULES = {
     "underload_percent": 65,
 }
 
-# Kept for older code (demo_cli.py) - the web app reads faculty from the database
 DEFAULT_FACULTY_CATALOG = {
     "Dr. Rajesh Sharma": {"designation": "Professor", "department": "CSE", "max_hours": 14},
     "Prof. Ananya Iyer": {"designation": "Associate Professor", "department": "CSE", "max_hours": 16},
@@ -50,19 +23,9 @@ DEFAULT_FACULTY_CATALOG = {
     "Dr. Pooja Menon": {"designation": "Assistant Professor", "department": "AI-DS", "max_hours": 18},
 }
 
-
 class ConflictDetector:
     def __init__(self, faculty_catalog=None, rooms=None, sections=None, subjects=None,
                  faculty_subjects=None, settings=None, elective_baskets=None):
-        """
-        faculty_catalog  : {name: {"designation", "department", "max_hours"}}
-        rooms            : list of {"name", "room_type", "capacity"}
-        sections         : list of {"name", "department", "strength"}
-        subjects         : list of {"code", "name", "department", "is_lab"}
-        faculty_subjects : {course_code: [faculty names who can teach it]}
-        settings         : dict like DEFAULT_RULES
-        elective_baskets : list of {"basket_name", "course_code", "sections"}
-        """
         self.catalog = faculty_catalog if faculty_catalog is not None else DEFAULT_FACULTY_CATALOG
         self.rooms = {r["name"]: r for r in (rooms or [])}
         self.sections = {s["name"]: s for s in (sections or [])}
@@ -73,19 +36,13 @@ class ConflictDetector:
         if settings:
             self.rules.update(settings)
 
-    # ------------------------------------------------------------------
-    # Small helper functions
-    # ------------------------------------------------------------------
     def is_lab_course(self, entry):
-        """A course is a lab if the subjects table says so, or its name contains 'lab'."""
         subject = self.subjects.get(entry.get("course_code"))
         if subject is not None:
             return bool(subject["is_lab"])
         return "lab" in str(entry.get("course_name", "")).lower()
 
     def can_teach(self, faculty_name, course_code):
-        """True if the teacher may teach this course.
-        If nobody is mapped to the course yet, we do not restrict it."""
         allowed = self.faculty_subjects.get(course_code)
         if not allowed:
             return True
@@ -94,20 +51,15 @@ class ConflictDetector:
     def max_hours_of(self, faculty_name):
         return self.catalog.get(faculty_name, {}).get("max_hours", 16)
 
-    # ------------------------------------------------------------------
-    # Main function
-    # ------------------------------------------------------------------
     def analyze_schedule(self, schedule_entries):
-        """Check the whole timetable and return a report dictionary."""
         conflicts = []
         time_slots = self.rules["time_slots"]
         working_days = self.rules["working_days"]
 
-        # Group the classes in different ways so clashes are easy to find
-        faculty_slot_map = defaultdict(list)   # (faculty, day, slot) -> classes
-        room_slot_map = defaultdict(list)      # (room, day, slot)    -> classes
-        section_slot_map = defaultdict(list)   # (section, day, slot) -> classes
-        faculty_day_entries = defaultdict(lambda: defaultdict(list))  # faculty -> day -> classes
+        faculty_slot_map = defaultdict(list)
+        room_slot_map = defaultdict(list)
+        section_slot_map = defaultdict(list)
+        faculty_day_entries = defaultdict(lambda: defaultdict(list))
         faculty_total_hours = defaultdict(int)
 
         for entry in schedule_entries:
@@ -118,9 +70,8 @@ class ConflictDetector:
             room_slot_map[(entry.get("room"), day, slot)].append(entry)
             section_slot_map[(entry.get("section"), day, slot)].append(entry)
             faculty_day_entries[f_name][day].append(entry)
-            faculty_total_hours[f_name] += 1   # every slot is one hour
+            faculty_total_hours[f_name] += 1
 
-        # ---- 1. Faculty double-booking --------------------------------
         for (f_name, day, slot), entries in faculty_slot_map.items():
             if len(entries) > 1:
                 details = " & ".join(f"{e.get('course_code')} ({e.get('section')}) in {e.get('room')}"
@@ -135,7 +86,6 @@ class ConflictDetector:
                     "target_faculty": f_name,
                 })
 
-        # ---- 2. Room double-booking -----------------------------------
         for (room, day, slot), entries in room_slot_map.items():
             if len(entries) > 1:
                 details = " & ".join(f"{e.get('faculty_name')} [{e.get('course_code')}]" for e in entries)
@@ -149,14 +99,8 @@ class ConflictDetector:
                     "target_room": room,
                 })
 
-        # ---- 3. Section & Lab Batch clash ----------------------------
-        # If classes are for the entire section (batch == "All"), any parallel class is a clash.
-        # If classes are split into distinct lab batches (e.g. Batch B1 in Lab-1 and Batch B2 in Lab-2),
-        # they are fully valid parallel sessions! They only clash if the SAME batch is double-booked
-        # or if an "All" class overlaps with a specific batch.
         for (section, day, slot), entries in section_slot_map.items():
             if len(entries) > 1:
-                # Group by batch
                 batches_at_slot = defaultdict(list)
                 for e in entries:
                     b = (e.get("batch") or "All").strip()
@@ -167,13 +111,11 @@ class ConflictDetector:
                 clashed_subset = []
 
                 if has_all and len(entries) > len(batches_at_slot.get("All", [])):
-                    # "All" class overlaps with specific batches (e.g. Whole class lecture vs Batch 1 lab)
                     batch_collision = True
                     clashed_subset = entries
                 else:
                     for b, b_entries in batches_at_slot.items():
                         if len(b_entries) > 1:
-                            # Same batch double-booked!
                             batch_collision = True
                             clashed_subset.extend(b_entries)
 
@@ -191,7 +133,6 @@ class ConflictDetector:
                         "target_section": section,
                     })
 
-        # ---- 4 & 5. Daily limit and back-to-back fatigue --------------
         slot_index = {s: i for i, s in enumerate(time_slots)}
         max_daily = self.rules["max_daily_hours"]
         max_streak_allowed = self.rules["max_consecutive_hours"]
@@ -212,9 +153,6 @@ class ConflictDetector:
                         "involved_entries": ids, "target_faculty": f_name,
                     })
 
-                # Find the longest run of back-to-back slots.
-                # The lunch break breaks the run (BUG FIX: earlier the 12-1 and 2-3
-                # slots were counted as continuous even though lunch is in between).
                 indices = sorted({slot_index[e.get("time_slot")] for e in entries
                                   if e.get("time_slot") in slot_index})
                 streak, longest = 1, (1 if indices else 0)
@@ -237,7 +175,6 @@ class ConflictDetector:
                         "involved_entries": ids, "target_faculty": f_name,
                     })
 
-        # ---- 7, 8, 9, 10. Checks on each single class -----------------
         for entry in schedule_entries:
             eid = entry.get("id")
             f_name = entry.get("faculty_name")
@@ -253,7 +190,6 @@ class ConflictDetector:
                     "description": text, "involved_entries": [eid],
                 })
 
-            # 10. Unknown / invalid data (useful after importing a file)
             if entry.get("day") not in working_days:
                 warn("INVALID_DAY", "Data Problem", f"Invalid Day: {entry.get('day')}",
                      f"{where}: '{entry.get('day')}' is not a working day in Settings.")
@@ -267,26 +203,20 @@ class ConflictDetector:
                 warn("UNKNOWN_ROOM", "Data Problem", f"Unregistered Room: {room_name}",
                      f"{where}: room {room_name} is not in the rooms list.")
 
-            # 7. Lab subject in a lecture hall
             if room is not None and self.is_lab_course(entry) and room["room_type"] != "Lab":
                 warn("LAB_ROOM_MISMATCH", "Room Type", f"Lab Class in a Lecture Hall: {room_name}",
                      f"{where} is a lab subject but {room_name} is a {room['room_type']}.")
 
-            # 8. Room capacity
             if room is not None and section is not None and section["strength"] > room["capacity"]:
                 warn("ROOM_TOO_SMALL", "Capacity", f"Room Too Small: {room_name}",
                      f"{entry.get('section')} has {section['strength']} students but {room_name} "
                      f"seats only {room['capacity']}.")
 
-            # 9. Teacher qualified for the subject?
             if not self.can_teach(f_name, entry.get("course_code")):
                 warn("NOT_QUALIFIED", "Qualification", f"Subject Not Mapped: {f_name}",
                      f"{f_name} is not listed as a teacher for {entry.get('course_code')}. "
                      f"Update the subject mapping on the Faculty page if this is correct.")
 
-        # ---- 11. Multi-Hour Continuous Lab Integrity ------------------
-        # If a lab class is scheduled on a day, check if it forms a contiguous
-        # block (e.g. 2 hours) or is fragmented as isolated 1-hour sessions.
         section_day_labs = defaultdict(lambda: defaultdict(list))
         for entry in schedule_entries:
             if self.is_lab_course(entry):
@@ -300,7 +230,6 @@ class ConflictDetector:
         for (sec, code), days_dict in section_day_labs.items():
             for day, lab_entries in days_dict.items():
                 if len(lab_entries) > 1:
-                    # Check room consistency
                     rooms_used = {e.get("room") for e in lab_entries}
                     if len(rooms_used) > 1:
                         conflicts.append({
@@ -311,7 +240,6 @@ class ConflictDetector:
                             "description": f"Lab {code} for {sec} on {day} is split across different rooms: {', '.join(rooms_used)}.",
                             "involved_entries": [e.get("id") for e in lab_entries],
                         })
-                    # Check contiguous sequence
                     idxs = sorted([slot_index[e.get("time_slot")] for e in lab_entries])
                     is_contiguous = True
                     for k in range(1, len(idxs)):
@@ -329,12 +257,7 @@ class ConflictDetector:
                             "involved_entries": [e.get("id") for e in lab_entries],
                         })
 
-        # ---- 12. Open Electives & Cross-Department Basket Conflicts ---
-        # When an elective course from a basket is scheduled, students from multiple
-        # sections are attending it simultaneously. Any other course scheduled for
-        # those participating sections at the exact same slot causes a cross-department clash.
         if self.elective_baskets:
-            # Map course_code -> list of affected sections
             course_basket_sections = defaultdict(list)
             for b in self.elective_baskets:
                 c_code = b.get("course_code")
@@ -349,7 +272,6 @@ class ConflictDetector:
                     slot = entry.get("time_slot")
                     enrolled_secs = course_basket_sections[c_code]
                     for enrolled_sec in enrolled_secs:
-                        # Check if this enrolled section has other non-elective classes at this same day & slot
                         parallel_classes = section_slot_map.get((enrolled_sec, day, slot), [])
                         for p in parallel_classes:
                             if p.get("id") != entry.get("id") and p.get("course_code") != c_code:
@@ -365,7 +287,6 @@ class ConflictDetector:
                                     "target_section": enrolled_sec,
                                 })
 
-        # ---- 6. Weekly workload per faculty ---------------------------
         workload_distribution = []
         utilization_list = []
         underload_limit = self.rules["underload_percent"] / 100
@@ -407,11 +328,6 @@ class ConflictDetector:
                 "status": status,
             })
 
-        # Workload Balance Index (WBI).
-        # BUG FIX: we now compare utilization % (hours / own cap) instead of raw
-        # hours, because a Professor (cap 14) and an Assistant Professor (cap 18)
-        # teaching the same hours are NOT equally loaded.
-        # 0 spread -> 100%. A spread (std. deviation) of 0.5 (50 %) -> 50%.
         wbi_score = 100.0
         if len(utilization_list) > 1:
             spread = float(np.std(utilization_list))
@@ -429,11 +345,7 @@ class ConflictDetector:
             "suggestions": suggestions,
         }
 
-    # ------------------------------------------------------------------
-    # Suggestions to fix conflicts
-    # ------------------------------------------------------------------
     def _build_busy_sets(self, schedule_entries):
-        """Sets that tell us quickly who/what is busy at a day+slot."""
         busy = {"faculty": set(), "room": set(), "section": set()}
         load = defaultdict(int)
         per_day = defaultdict(int)
@@ -447,8 +359,6 @@ class ConflictDetector:
         return busy, load, per_day
 
     def find_substitute(self, entry, busy, load, exclude=()):
-        """Best other teacher for this class: same department, free at that time,
-        below their weekly cap, preferably qualified, with the lowest load."""
         day, slot = entry.get("day"), entry.get("time_slot")
         original = entry.get("faculty_name")
         dept = self.catalog.get(original, {}).get("department", entry.get("department"))
@@ -464,15 +374,12 @@ class ConflictDetector:
             if load[f_name] + 1 > info["max_hours"]:
                 continue
             qualified = self.can_teach(f_name, entry.get("course_code"))
-            # sort key: qualified first (False < True so we use "not"), then lowest load
             candidates.append((not qualified, load[f_name], f_name))
 
         candidates.sort()
         return [(name, load_now) for _, load_now, name in candidates]
 
     def find_free_room(self, entry, busy):
-        """A room that is free at that time, of the right type and big enough.
-        BUG FIX: earlier this always returned 'LH-203' without checking."""
         day, slot = entry.get("day"), entry.get("time_slot")
         need_lab = self.is_lab_course(entry)
         section = self.sections.get(entry.get("section"))
@@ -486,14 +393,12 @@ class ConflictDetector:
                 continue
             if room["capacity"] < strength:
                 continue
-            # prefer the right type, then the smallest room that fits (saves big rooms)
             wrong_type = (room["room_type"] == "Lab") != need_lab
             options.append((wrong_type, room["capacity"], name))
         options.sort()
         return options[0][2] if options else None
 
     def find_free_slot(self, entry, busy, per_day):
-        """First day + slot where the teacher, the section AND the room are all free."""
         f_name, section, room = entry.get("faculty_name"), entry.get("section"), entry.get("room")
         for day in self.rules["working_days"]:
             if per_day[(f_name, day)] >= self.rules["max_daily_hours"]:
@@ -543,7 +448,7 @@ class ConflictDetector:
             involved = [lookup[i] for i in c.get("involved_entries", []) if i in lookup]
 
             if c["type"] == "FACULTY_TIME_CLASH" and len(involved) >= 2:
-                e = involved[1]   # keep the first class, fix the second one
+                e = involved[1]
                 subs = self.find_substitute(e, busy, load)
                 if subs:
                     name, current = subs[0]
@@ -570,7 +475,6 @@ class ConflictDetector:
                 change_room(c, involved[0], "Better room available.")
 
             elif c["type"] == "WEEKLY_OVERLOAD":
-                # Try to hand over one of this teacher's classes to someone with spare time
                 own = [e for e in schedule_entries if e.get("faculty_name") == c["target_faculty"]]
                 for e in own:
                     subs = self.find_substitute(e, busy, load)

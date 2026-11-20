@@ -1,11 +1,7 @@
-"""
-Tests for Automated Timetable Generator (CSP) and Continuous Lab Block Support.
-"""
 
 import unittest
 from core.generator import TimetableGenerator
 from core.conflict_detector import ConflictDetector
-
 
 class TestGeneratorAndLabs(unittest.TestCase):
     def setUp(self):
@@ -46,7 +42,6 @@ class TestGeneratorAndLabs(unittest.TestCase):
         }
 
     def test_generator_solves_zero_clash_schedule(self):
-        """Test that generator produces a 100% collision-free timetable."""
         reqs = [
             {"section": "CSE-A", "course_code": "CS301", "hours_per_week": 3, "duration": 1},
             {"section": "CSE-A", "course_code": "CS302", "hours_per_week": 3, "duration": 1},
@@ -63,7 +58,6 @@ class TestGeneratorAndLabs(unittest.TestCase):
         self.assertTrue(success, f"Generator failed. Stats: {stats}")
         self.assertEqual(len(schedule), 21)
 
-        # Validate with ConflictDetector
         detector = ConflictDetector(
             faculty_catalog={f["name"]: f for f in self.faculty},
             rooms=self.rooms,
@@ -75,7 +69,6 @@ class TestGeneratorAndLabs(unittest.TestCase):
         self.assertEqual(report["critical_conflicts"], 0, f"Critical conflicts found: {report['conflicts_list']}")
 
     def test_multi_hour_lab_block_continuity(self):
-        """Test that 2-hour lab blocks are strictly consecutive on the same day in the same room."""
         reqs = [
             {"section": "CSE-A", "course_code": "CS305", "hours_per_week": 2, "duration": 2},
             {"section": "IT-A", "course_code": "IT305", "hours_per_week": 2, "duration": 2},
@@ -91,15 +84,12 @@ class TestGeneratorAndLabs(unittest.TestCase):
             self.assertEqual(lab_entries[0]["room"], lab_entries[1]["room"])
             self.assertEqual(lab_entries[0]["faculty_name"], lab_entries[1]["faculty_name"])
 
-            # Verify consecutive time slots
             idx0 = self.settings["time_slots"].index(lab_entries[0]["time_slot"])
             idx1 = self.settings["time_slots"].index(lab_entries[1]["time_slot"])
             self.assertEqual(idx1 - idx0, 1)
-            # Must not cross lunch
             self.assertNotEqual(lab_entries[0]["time_slot"], self.settings["lunch_after"])
 
     def test_conflict_detector_catches_split_or_fragmented_labs(self):
-        """Test that ConflictDetector warns on non-contiguous or split-room labs."""
         detector = ConflictDetector(
             faculty_catalog={f["name"]: f for f in self.faculty},
             rooms=self.rooms,
@@ -108,7 +98,6 @@ class TestGeneratorAndLabs(unittest.TestCase):
             settings=self.settings
         )
 
-        # 1. Fragmented lab (has 1 hour gap between 9-10 and 11-12)
         frag_schedule = [
             {"id": 1, "faculty_name": "Dr. Amit Verma", "department": "CSE", "course_code": "CS305",
              "section": "CSE-A", "day": "Monday", "time_slot": "09:00 - 10:00", "room": "Lab-1"},
@@ -119,7 +108,6 @@ class TestGeneratorAndLabs(unittest.TestCase):
         frag_types = [c["type"] for c in rep_frag["conflicts_list"]]
         self.assertIn("LAB_FRAGMENTED", frag_types)
 
-        # 2. Split room lab
         split_schedule = [
             {"id": 1, "faculty_name": "Dr. Amit Verma", "department": "CSE", "course_code": "CS305",
              "section": "CSE-A", "day": "Monday", "time_slot": "09:00 - 10:00", "room": "Lab-1"},
@@ -129,7 +117,6 @@ class TestGeneratorAndLabs(unittest.TestCase):
         rep_split = detector.analyze_schedule(split_schedule)
         split_types = [c["type"] for c in rep_split["conflicts_list"]]
         self.assertIn("LAB_ROOM_SPLIT", split_types)
-
 
 if __name__ == "__main__":
     unittest.main()

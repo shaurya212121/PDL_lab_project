@@ -1,6 +1,3 @@
-"""
-Generate realistic Faculty Workload Dataset based on AICTE/UGC academic workload norms.
-"""
 
 import os
 import random
@@ -38,18 +35,15 @@ def generate():
         desig = desig_tuple[0]
         max_limit = desig_tuple[1]
 
-        # Scenario distribution:
-        # 25% underloaded, 50% balanced, 25% overloaded
         scenario = random.choices(['underload', 'balanced', 'overload'], weights=[0.25, 0.50, 0.25])[0]
 
         if scenario == 'underload':
             target_hours = random.randint(6, 11)
         elif scenario == 'balanced':
             target_hours = random.randint(12, max_limit)
-        else: # overload
+        else:
             target_hours = random.randint(max_limit + 1, max_limit + 9)
 
-        # Distribute target hours across categories depending on designation
         if desig == 'Professor':
             teaching = int(target_hours * random.uniform(0.35, 0.50))
             lab = int(target_hours * random.uniform(0.05, 0.15))
@@ -60,7 +54,7 @@ def generate():
             lab = int(target_hours * random.uniform(0.15, 0.25))
             admin = int(target_hours * random.uniform(0.10, 0.20))
             research = target_hours - (teaching + lab + admin)
-        else: # Assistant Professor
+        else:
             teaching = int(target_hours * random.uniform(0.50, 0.65))
             lab = int(target_hours * random.uniform(0.20, 0.35))
             admin = int(target_hours * random.uniform(0.00, 0.10))
@@ -75,7 +69,6 @@ def generate():
         unique_courses = min(4, max(1, int(np.ceil(teaching / 4.0))))
         days_taught = min(6, max(3, int(np.ceil((teaching + lab) / 3.5))))
 
-        # Determine Burnout / Stress Level
         if total_hours < 12:
             stress_level = 0
             stress_label = 'Underloaded'

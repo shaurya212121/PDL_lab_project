@@ -18,7 +18,6 @@
     </div>
   </div>
 
-  <!-- Conflicts & Capacity Alert Section -->
   {% if conflicts.conflicts %}
   <div style="margin-top: 1.25rem;">
     <div style="margin-bottom: 0.5rem; font-weight: 700; font-size: 0.95rem; color: {% if conflicts.critical_count > 0 %}var(--danger){% else %}var(--warning){% endif %}; display: flex; align-items: center; gap: 0.5rem;">
@@ -47,9 +46,8 @@
   </div>
   {% endif %}
 
-  <!-- Main 2-Column Section -->
   <div class="grid-2col" style="margin-top: 1.25rem;">
-    <!-- Left: Scheduled Sessions Roster -->
+    
     <div>
       <h4>Scheduled Examination Sessions ({{ sessions|length }})</h4>
       <p class="card-desc">Multi-class pooled cohorts and assigned invigilators.</p>
@@ -133,7 +131,6 @@
       </div>
     </div>
 
-    <!-- Right: Schedule Form -->
     {% if is_admin %}
     <div>
       <h4>Schedule Exam & Assign Invigilators</h4>
@@ -174,7 +171,6 @@
           </div>
         </div>
 
-        <!-- Multi-Class Pooling Checkboxes -->
         <div class="form-group" style="background: var(--bg-main); padding: 0.75rem; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
             <label style="font-weight: 700; margin-bottom: 0;">Combined Sections (Multi-Class Pooling):</label>
@@ -232,7 +228,6 @@
     {% endif %}
   </div>
 
-  <!-- Invigilation Workload Fairness Section -->
   <div style="margin-top: 2rem; border-top: 1px solid var(--border-color); padding-top: 1.5rem;">
     <div class="card-header-flex">
       <div>

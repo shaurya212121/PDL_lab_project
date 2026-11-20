@@ -1,12 +1,3 @@
-"""
-Chronos - Faculty Workload Distribution & Conflict Detector
-Flask web application.
-
-Run:  python app.py      then open  http://127.0.0.1:5000
-
-Anyone can VIEW the dashboard, timetable, reports and printable timetables.
-Changing anything (adding classes, faculty, settings, leave ...) needs the admin login.
-"""
 
 import io
 import os
@@ -37,12 +28,9 @@ METADATA_PATH = os.path.join(BASE_DIR, "model", "model_metadata.json")
 SECRET_KEY_PATH = os.path.join(BASE_DIR, "data", "secret_key.txt")
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
-app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024  # uploads up to 5 MB
-
+app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024
 
 def load_secret_key():
-    """Flask needs a secret key to keep people logged in. We create one the first
-    time and save it in data/ (that folder is not uploaded to GitHub)."""
     os.makedirs(os.path.dirname(SECRET_KEY_PATH), exist_ok=True)
     if not os.path.exists(SECRET_KEY_PATH):
         with open(SECRET_KEY_PATH, "w") as f:
@@ -50,18 +38,11 @@ def load_secret_key():
     with open(SECRET_KEY_PATH) as f:
         return f.read().strip()
 
-
-# CLASHAUDIT_SECRET is the old name (before the rename) and still works
 app.secret_key = (os.environ.get("CHRONOS_SECRET") or os.environ.get("CLASHAUDIT_SECRET")
                   or load_secret_key())
 db.init_db()
 
-# ---------------------------------------------------------------------------
-# Machine learning model (burnout risk predictor)
-# ---------------------------------------------------------------------------
 def load_model():
-    """Load the saved model. If it is missing, or was saved with a different
-    scikit-learn version (this happens on a new computer), train it again."""
     import warnings
     try:
         with warnings.catch_warnings(record=True) as caught:
@@ -80,7 +61,6 @@ def load_model():
         print(f"[ERROR] Training failed: {e}. The burnout predictor will be disabled.")
         return None
 
-
 ml_pipeline = load_model()
 model_meta = {}
 
@@ -90,12 +70,7 @@ try:
 except Exception as e:
     print(f"[ERROR] Failed to load model metadata: {e}")
 
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
 def make_detector():
-    """Build a conflict detector using the latest data in the database."""
     return ConflictDetector(
         faculty_catalog=db.get_faculty_catalog(),
         rooms=db.get_rooms(),
@@ -106,19 +81,15 @@ def make_detector():
         elective_baskets=db.get_elective_baskets(),
     )
 
-
 def run_analysis():
     timetable = db.get_timetable()
     report = make_detector().analyze_schedule(timetable)
     return timetable, report
 
-
 def is_admin():
     return session.get("user") is not None
 
-
 def login_required(view):
-    """Put @login_required above a route to allow only the logged-in admin."""
     @wraps(view)
     def wrapper(*args, **kwargs):
         if not is_admin():
@@ -129,14 +100,10 @@ def login_required(view):
         return view(*args, **kwargs)
     return wrapper
 
-
 def csrf_token():
-    """A random token put in every form. A request from another website will not
-    know it, so it cannot submit forms on our behalf (CSRF protection)."""
     if "csrf" not in session:
         session["csrf"] = secrets.token_hex(16)
     return session["csrf"]
-
 
 @app.before_request
 def check_csrf():
@@ -148,10 +115,8 @@ def check_csrf():
             flash("Your session expired. Please try again.", "error")
             return redirect(request.referrer or url_for("home"))
 
-
 @app.context_processor
 def template_globals():
-    """Variables available in every HTML template."""
     password_changed = db.query("SELECT value FROM settings WHERE key = 'admin_password_changed'")
     return {
         "is_admin": is_admin(),
@@ -160,16 +125,13 @@ def template_globals():
         "default_password": is_admin() and not password_changed,
     }
 
-
 def form_int(name, default=0):
     try:
         return int(request.form.get(name, default))
     except (TypeError, ValueError):
         return default
 
-
 def entry_from_form():
-    """Read the add/edit class form and fill in department and course name."""
     code = request.form.get("course_code", "").strip().upper()
     faculty = request.form.get("faculty_name", "").strip()
     subject = next((s for s in db.get_subjects() if s["code"] == code), {})
@@ -186,9 +148,7 @@ def entry_from_form():
         "room": request.form.get("room", "").strip(),
     }
 
-
 def flash_conflicts_for(entry_id):
-    """After adding/editing a class, tell the user straight away if it causes a problem."""
     _, report = run_analysis()
     problems = [c for c in report["conflicts_list"] if entry_id in c.get("involved_entries", [])]
     for c in problems:
@@ -196,24 +156,18 @@ def flash_conflicts_for(entry_id):
               "error" if c["severity"] == "CRITICAL" else "warning")
     return problems
 
-
 def is_valid_date(text):
-    """True if text is a real date in YYYY-MM-DD form (what <input type="date"> sends)."""
     try:
         date.fromisoformat(text)
         return True
     except (TypeError, ValueError):
         return False
 
-
 def missing_class_fields(entry):
-    """Names of the required class fields that were left empty."""
     required = ["faculty_name", "course_code", "section", "day", "time_slot", "room"]
     return [f for f in required if not entry[f]]
 
-
 def form_choices():
-    """Lists used in the dropdowns of the class form."""
     return {
         "faculty": db.get_faculty(),
         "subjects": db.get_subjects(),
@@ -221,10 +175,6 @@ def form_choices():
         "rooms": db.get_rooms(),
     }
 
-
-# ---------------------------------------------------------------------------
-# Login / logout / password
-# ---------------------------------------------------------------------------
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -235,19 +185,16 @@ def login():
             session["user"] = username
             flash(f"Welcome, {username}.", "success")
             next_page = request.args.get("next", "")
-            # only allow redirects inside our own site
             return redirect(next_page if next_page.startswith("/") and not next_page.startswith("//")
                             else url_for("home"))
         flash("Wrong username or password.", "error")
     return render_template("login.html")
-
 
 @app.route("/logout")
 def logout():
     session.pop("user", None)
     flash("Logged out.", "success")
     return redirect(url_for("home"))
-
 
 @app.route("/account/password", methods=["GET", "POST"])
 @login_required
@@ -271,30 +218,20 @@ def change_password():
             return redirect(url_for("home"))
     return render_template("password.html")
 
-
-# ---------------------------------------------------------------------------
-# Dashboard
-# ---------------------------------------------------------------------------
 @app.route("/")
 def home():
     return render_template("index.html", model_meta=model_meta)
 
-
-# ---------------------------------------------------------------------------
-# Timetable
-# ---------------------------------------------------------------------------
 @app.route("/timetable")
 def timetable_page():
     timetable, report = run_analysis()
 
-    # Which rows have a problem? (to colour them in the table)
     row_status = {}
     for c in report["conflicts_list"]:
         for eid in c.get("involved_entries", []):
             if c["severity"] == "CRITICAL" or row_status.get(eid) != "CRITICAL":
                 row_status[eid] = c["severity"]
 
-    # Simple filters from the URL, e.g. /timetable?day=Monday
     filters = {k: request.args.get(k, "") for k in ["day", "faculty", "section", "room"]}
     rows = [e for e in timetable
             if (not filters["day"] or e["day"] == filters["day"])
@@ -304,7 +241,6 @@ def timetable_page():
 
     return render_template("timetable.html", rows=rows, total=len(timetable),
                            row_status=row_status, filters=filters, **form_choices())
-
 
 @app.route("/timetable/add", methods=["POST"])
 @login_required
@@ -321,7 +257,6 @@ def timetable_add():
             flash(f"Added {entry['course_code']} ({entry['section']}) on {entry['day']} {entry['time_slot']}. "
                   f"No conflicts.", "success")
     else:
-        # Multi-hour continuous block: find consecutive slots
         settings = db.get_settings()
         time_slots = settings.get("time_slots", [])
         lunch_after = settings.get("lunch_after", "")
@@ -336,7 +271,6 @@ def timetable_add():
             return redirect(url_for("timetable_page"))
 
         consecutive_slots = time_slots[start_idx:start_idx + duration]
-        # Check if lunch break is crossed inside the block
         crosses_lunch = False
         for s in consecutive_slots[:-1]:
             if s == lunch_after:
@@ -363,7 +297,6 @@ def timetable_add():
 
     return redirect(url_for("timetable_page"))
 
-
 @app.route("/timetable/edit/<int:entry_id>", methods=["GET", "POST"])
 @login_required
 def timetable_edit(entry_id):
@@ -381,7 +314,6 @@ def timetable_edit(entry_id):
         return redirect(url_for("timetable_page"))
     return render_template("timetable_edit.html", entry=entry, **form_choices())
 
-
 @app.route("/timetable/delete/<int:entry_id>", methods=["POST"])
 @login_required
 def timetable_delete(entry_id):
@@ -389,14 +321,12 @@ def timetable_delete(entry_id):
     flash("Class deleted.", "success")
     return redirect(request.referrer or url_for("timetable_page"))
 
-
 @app.route("/timetable/clear", methods=["POST"])
 @login_required
 def timetable_clear():
     db.clear_timetable()
     flash("All classes removed from the timetable.", "success")
     return redirect(url_for("timetable_page"))
-
 
 @app.route("/timetable/import", methods=["POST"])
 @login_required
@@ -428,17 +358,12 @@ def timetable_import():
               + (" ..." if len(errors) > 5 else ""), "warning")
     return redirect(url_for("timetable_page"))
 
-
-# ---------------------------------------------------------------------------
-# Automated Timetable Generator (CSP / Backtracking)
-# ---------------------------------------------------------------------------
 @app.route("/generate")
 @login_required
 def generate_page():
     return render_template("generate.html", sections=db.get_sections(),
                            subjects=db.get_subjects(), faculty=db.get_faculty(),
                            rooms=db.get_rooms())
-
 
 @app.route("/generate/run", methods=["POST"])
 @login_required
@@ -455,7 +380,6 @@ def generate_run():
         flash("No course requirements provided to generate timetable.", "error")
         return redirect(url_for("generate_page"))
 
-    # Instantiate the CSP solver
     generator = TimetableGenerator(
         faculty=db.get_faculty(),
         rooms=db.get_rooms(),
@@ -472,12 +396,10 @@ def generate_run():
         flash(f"Generation failed: constraints could not be satisfied. Tried {stats.get('backtracks', 0)} backtracks.", "error")
         return redirect(url_for("generate_page"))
 
-    # Apply generated timetable
     if mode == "replace":
         db.clear_timetable()
         to_insert = schedule
     else:
-        # Only insert new classes
         existing_ids = {e.get("id") for e in existing if e.get("id")}
         to_insert = [e for e in schedule if e.get("id") not in existing_ids]
 
@@ -493,10 +415,6 @@ def generate_run():
 
     return redirect(url_for("timetable_page"))
 
-
-# ---------------------------------------------------------------------------
-# Interactive Visual Timetable Editor
-# ---------------------------------------------------------------------------
 @app.route("/editor")
 @login_required
 def interactive_editor():
@@ -506,20 +424,17 @@ def interactive_editor():
     selected_day = request.args.get("day", working_days[0] if working_days else "Monday")
     group_by = request.args.get("group_by", "sections")
 
-    # Clashed entry IDs for visual red highlight
     clashed_ids = set()
     for c in report["conflicts_list"]:
         if c["severity"] == "CRITICAL":
             for eid in c.get("involved_entries", []):
                 clashed_ids.add(eid)
 
-    # Determine columns based on grouping
     if group_by == "sections":
         columns = [s["name"] for s in db.get_sections()]
     else:
         columns = [r["name"] for r in db.get_rooms()]
 
-    # Grid map: (time_slot, col_name) -> list of entries
     grid = defaultdict(list)
     for e in timetable:
         if e["day"] == selected_day:
@@ -531,7 +446,6 @@ def interactive_editor():
                            faculty=db.get_faculty(), rooms=db.get_rooms(),
                            sections=db.get_sections(), subjects=db.get_subjects(),
                            settings=settings)
-
 
 @app.route("/editor/save", methods=["POST"])
 @login_required
@@ -559,10 +473,6 @@ def interactive_editor_save():
         flash("Updated class allocation. No conflicts.", "success")
     return redirect(url_for("interactive_editor", day=updated["day"], group_by=request.args.get("group_by", "sections")))
 
-
-# ---------------------------------------------------------------------------
-# Faculty
-# ---------------------------------------------------------------------------
 @app.route("/faculty")
 def faculty_page():
     _, report = run_analysis()
@@ -573,7 +483,6 @@ def faculty_page():
         f["workload"] = workload.get(f["name"], {})
     return render_template("faculty.html", faculty=faculty, designations=db.DESIGNATIONS,
                            departments=db.get_departments())
-
 
 @app.route("/faculty/add", methods=["POST"])
 @login_required
@@ -589,7 +498,6 @@ def faculty_add():
         db.save_faculty(name, dept, desig, form_int("max_hours") or None)
         flash(f"Added {name}. Click Edit to choose which subjects they teach.", "success")
     return redirect(url_for("faculty_page"))
-
 
 @app.route("/faculty/edit/<name>", methods=["GET", "POST"])
 @login_required
@@ -608,7 +516,6 @@ def faculty_edit(name):
                            designations=db.DESIGNATIONS, departments=db.get_departments(),
                            subjects=db.get_subjects(), chosen=db.get_subjects_of(name))
 
-
 @app.route("/faculty/delete/<name>", methods=["POST"])
 @login_required
 def faculty_delete(name):
@@ -619,7 +526,6 @@ def faculty_delete(name):
         db.delete_faculty(name)
         flash(f"Removed {name}.", "success")
     return redirect(url_for("faculty_page"))
-
 
 @app.route("/faculty/import", methods=["POST"])
 @login_required
@@ -640,10 +546,6 @@ def faculty_import():
         flash(f"{len(errors)} row(s) skipped: " + " | ".join(errors[:5]), "warning")
     return redirect(url_for("faculty_page"))
 
-
-# ---------------------------------------------------------------------------
-# Rooms, sections and subjects ("master data")
-# ---------------------------------------------------------------------------
 @app.route("/setup")
 def masters_page():
     teachers = db.get_faculty_subjects()
@@ -652,10 +554,8 @@ def masters_page():
                            departments=db.get_departments(),
                            baskets=db.get_elective_baskets())
 
-
 def used_in_timetable(column, value):
     return db.query(f"SELECT COUNT(*) AS n FROM timetable WHERE {column} = ?", (value,))[0]["n"]
-
 
 @app.route("/rooms/save", methods=["POST"])
 @login_required
@@ -668,7 +568,6 @@ def room_save():
         flash(f"Saved room {name}.", "success")
     return redirect(url_for("masters_page") + "#rooms")
 
-
 @app.route("/rooms/delete/<name>", methods=["POST"])
 @login_required
 def room_delete(name):
@@ -679,7 +578,6 @@ def room_delete(name):
         db.delete_room(name)
         flash(f"Removed room {name}.", "success")
     return redirect(url_for("masters_page") + "#rooms")
-
 
 @app.route("/sections/save", methods=["POST"])
 @login_required
@@ -693,7 +591,6 @@ def section_save():
         flash(f"Saved section {name}.", "success")
     return redirect(url_for("masters_page") + "#sections")
 
-
 @app.route("/sections/delete/<name>", methods=["POST"])
 @login_required
 def section_delete(name):
@@ -704,7 +601,6 @@ def section_delete(name):
         db.delete_section(name)
         flash(f"Removed section {name}.", "success")
     return redirect(url_for("masters_page") + "#sections")
-
 
 @app.route("/subjects/save", methods=["POST"])
 @login_required
@@ -719,7 +615,6 @@ def subject_save():
         flash(f"Saved subject {code.upper()}.", "success")
     return redirect(url_for("masters_page") + "#subjects")
 
-
 @app.route("/subjects/delete/<code>", methods=["POST"])
 @login_required
 def subject_delete(code):
@@ -730,7 +625,6 @@ def subject_delete(code):
         db.delete_subject(code)
         flash(f"Removed subject {code}.", "success")
     return redirect(url_for("masters_page") + "#subjects")
-
 
 @app.route("/baskets/save", methods=["POST"])
 @login_required
@@ -747,7 +641,6 @@ def basket_save():
         flash(f"Saved Open Elective Basket '{b_name}' for {c_code}.", "success")
     return redirect(url_for("masters_page") + "#electives")
 
-
 @app.route("/baskets/delete/<int:basket_id>", methods=["POST"])
 @login_required
 def basket_delete(basket_id):
@@ -755,10 +648,6 @@ def basket_delete(basket_id):
     flash("Removed elective basket.", "success")
     return redirect(url_for("masters_page") + "#electives")
 
-
-# ---------------------------------------------------------------------------
-# Leave & substitutes
-# ---------------------------------------------------------------------------
 @app.route("/leave")
 @login_required
 def leave_page():
@@ -785,7 +674,6 @@ def leave_page():
         upcoming.append(lv)
     upcoming.sort(key=lambda lv: lv["leave_date"])
 
-    # Long-term / Maternity cover plans
     long_term_leaves = db.get_long_term_leaves()
     long_term_covers = db.get_long_term_covers()
     lt_assigned = {(c["long_term_leave_id"], c["timetable_id"]): c["cover_faculty_name"] for c in long_term_covers}
@@ -793,7 +681,6 @@ def leave_page():
     faculty_list = db.get_faculty()
     faculty_catalog = db.get_faculty_catalog()
 
-    # Pre-calculate workload and availability for long-term cover options
     weekly_load = defaultdict(int)
     for e in timetable:
         weekly_load[e["faculty_name"]] += 1
@@ -805,7 +692,6 @@ def leave_page():
 
         for entry in own_classes:
             assigned_cover = lt_assigned.get((ltl["id"], entry["id"]))
-            # Eligible colleagues: same department or qualified, free at that day+slot, below weekly limit
             eligible_covers = []
             for f in faculty_list:
                 cand_name = f["name"]
@@ -816,7 +702,6 @@ def leave_page():
                 cur_load = weekly_load[cand_name]
                 max_h = cand_info.get("max_hours", 16)
 
-                # Check if free at this recurring slot
                 slot_free = not any(
                     e["faculty_name"] == cand_name and e["day"] == entry["day"] and e["time_slot"] == entry["time_slot"]
                     for e in timetable
@@ -832,7 +717,6 @@ def leave_page():
                         "qualified": is_qual
                     })
 
-            # Sort eligible covers: qualified first, then least loaded
             eligible_covers.sort(key=lambda c: (0 if c["qualified"] else 1, c["current_hours"]))
 
             ltl["recurring_classes"].append({
@@ -843,7 +727,6 @@ def leave_page():
 
     return render_template("leave.html", upcoming=upcoming, past=past, today=today,
                            faculty=faculty_list, long_term_leaves=long_term_leaves)
-
 
 @app.route("/leave/add", methods=["POST"])
 @login_required
@@ -869,14 +752,12 @@ def leave_add():
               "success")
     return redirect(url_for("leave_page"))
 
-
 @app.route("/leave/delete/<int:leave_id>", methods=["POST"])
 @login_required
 def leave_delete(leave_id):
     db.delete_leave(leave_id)
     flash("Leave removed.", "success")
     return redirect(url_for("leave_page"))
-
 
 @app.route("/leave/<int:leave_id>/assign", methods=["POST"])
 @login_required
@@ -890,7 +771,6 @@ def leave_assign(leave_id):
         flash(f"{substitute} will take the class.", "success")
     return redirect(url_for("leave_page") + f"#leave-{leave_id}")
 
-
 @app.route("/leave/<int:leave_id>/unassign/<int:timetable_id>", methods=["POST"])
 @login_required
 def leave_unassign(leave_id, timetable_id):
@@ -898,10 +778,6 @@ def leave_unassign(leave_id, timetable_id):
     flash("Substitute removed.", "success")
     return redirect(url_for("leave_page") + f"#leave-{leave_id}")
 
-
-# ---------------------------------------------------------------------------
-# Long-Term Leave & Maternity Cover Actions
-# ---------------------------------------------------------------------------
 @app.route("/leave/long-term/add", methods=["POST"])
 @login_required
 def long_term_leave_add():
@@ -927,14 +803,12 @@ def long_term_leave_add():
     flash(f"Created {leave_type} cover plan for {faculty_name} ({start_date} to {end_date}). Assign designated cover faculty below.", "success")
     return redirect(url_for("leave_page"))
 
-
 @app.route("/leave/long-term/delete/<int:leave_id>", methods=["POST"])
 @login_required
 def long_term_leave_delete(leave_id):
     db.delete_long_term_leave(leave_id)
     flash("Long-term leave cover plan deleted.", "success")
     return redirect(url_for("leave_page"))
-
 
 @app.route("/leave/long-term/<int:leave_id>/assign", methods=["POST"])
 @login_required
@@ -948,7 +822,6 @@ def long_term_assign(leave_id):
         flash(f"Assigned {cover_faculty} as recurring cover for this course.", "success")
     return redirect(url_for("leave_page"))
 
-
 @app.route("/leave/long-term/<int:leave_id>/unassign/<int:timetable_id>", methods=["POST"])
 @login_required
 def long_term_unassign(leave_id, timetable_id):
@@ -956,15 +829,10 @@ def long_term_unassign(leave_id, timetable_id):
     flash("Cover assignment removed.", "success")
     return redirect(url_for("leave_page"))
 
-
-# ---------------------------------------------------------------------------
-# Institutional Holidays & Academic Calendar
-# ---------------------------------------------------------------------------
 @app.route("/holidays")
 def holidays_page():
     return render_template("holidays.html", holidays=db.get_holidays(),
                            today=date.today().isoformat())
-
 
 @app.route("/holidays/add", methods=["POST"])
 @login_required
@@ -981,7 +849,6 @@ def holiday_add():
         flash(f"Declared institutional holiday '{name}' on {h_date}.", "success")
     return redirect(url_for("holidays_page"))
 
-
 @app.route("/holidays/delete/<int:holiday_id>", methods=["POST"])
 @login_required
 def holiday_delete(holiday_id):
@@ -989,16 +856,11 @@ def holiday_delete(holiday_id):
     flash("Holiday removed.", "success")
     return redirect(url_for("holidays_page"))
 
-
-# ---------------------------------------------------------------------------
-# Timetable Versioning & Rollback History
-# ---------------------------------------------------------------------------
 @app.route("/versions")
 def versions_page():
     versions = db.get_timetable_versions()
     current_slots = db.get_timetable()
     return render_template("versions.html", versions=versions, current_count=len(current_slots))
-
 
 @app.route("/versions/save", methods=["POST"])
 @login_required
@@ -1018,7 +880,6 @@ def version_save():
     vid = db.save_timetable_version(name, desc, created_by=user)
     flash(f"Successfully saved draft '{name}' ({len(current_slots)} classes).", "success")
     return redirect(url_for("versions_page"))
-
 
 @app.route("/versions/<int:version_id>/diff")
 def version_diff(version_id):
@@ -1049,7 +910,6 @@ def version_diff(version_id):
                            all_versions=all_versions,
                            diff=diff_result)
 
-
 @app.route("/versions/<int:version_id>/rollback", methods=["POST"])
 @login_required
 def version_rollback(version_id):
@@ -1067,7 +927,6 @@ def version_rollback(version_id):
         flash(msg, "error")
     return redirect(url_for("timetable_page"))
 
-
 @app.route("/versions/<int:version_id>/delete", methods=["POST"])
 @login_required
 def version_delete(version_id):
@@ -1075,10 +934,6 @@ def version_delete(version_id):
     flash("Timetable draft deleted.", "success")
     return redirect(url_for("versions_page"))
 
-
-# ---------------------------------------------------------------------------
-# Exam Supervision & Multi-Class Cohort Scheduling
-# ---------------------------------------------------------------------------
 @app.route("/exams")
 def exams_page():
     sessions = db.get_exam_sessions()
@@ -1099,7 +954,6 @@ def exams_page():
                            sections=sections_list,
                            subjects=subjects_list,
                            today=date.today().isoformat())
-
 
 @app.route("/exams/add", methods=["POST"])
 @login_required
@@ -1127,7 +981,6 @@ def exam_add():
         flash("Please select at least one student section to examine.", "error")
         return redirect(url_for("exams_page"))
 
-    # Make sure everything typed in really exists (the form can be edited in the browser)
     catalog = db.get_faculty_catalog()
     problem = None
     if not is_valid_date(exam_date):
@@ -1165,14 +1018,12 @@ def exam_add():
     flash(f"Scheduled exam '{course_code}' in {room} for pooled sections [{sec_string}].", "success")
     return redirect(url_for("exams_page"))
 
-
 @app.route("/exams/delete/<int:session_id>", methods=["POST"])
 @login_required
 def exam_delete(session_id):
     db.delete_exam_session(session_id)
     flash("Exam session deleted.", "success")
     return redirect(url_for("exams_page"))
-
 
 @app.route("/exams/print")
 def exam_print():
@@ -1185,16 +1036,10 @@ def exam_print():
                            college_name=college_name,
                            today=date.today().isoformat())
 
-
-
-# ---------------------------------------------------------------------------
-# Printable timetables
-# ---------------------------------------------------------------------------
 @app.route("/print")
 def print_menu():
     return render_template("print_menu.html", faculty=db.get_faculty(), sections=db.get_sections(),
                            rooms=db.get_rooms(), today=date.today().isoformat())
-
 
 @app.route("/print/<kind>/<name>")
 def print_timetable(kind, name):
@@ -1204,7 +1049,6 @@ def print_timetable(kind, name):
     settings = db.get_settings()
     entries = [e for e in db.get_timetable() if e[columns[kind]] == name]
 
-    # grid[slot][day] = list of classes in that cell
     grid = {slot: {day: [] for day in settings["working_days"]} for slot in settings["time_slots"]}
     for e in entries:
         if e["time_slot"] in grid and e["day"] in grid[e["time_slot"]]:
@@ -1215,7 +1059,6 @@ def print_timetable(kind, name):
         extra = db.get_faculty_catalog().get(name, {})
     return render_template("print_grid.html", kind=kind, name=name, grid=grid, total=len(entries),
                            extra=extra)
-
 
 @app.route("/print/arrangements")
 @login_required
@@ -1236,10 +1079,6 @@ def print_arrangements():
     rows.sort(key=lambda r: slot_order.get(r["entry"]["time_slot"], 99))
     return render_template("print_arrangements.html", rows=rows, day_date=day_date, weekday=weekday)
 
-
-# ---------------------------------------------------------------------------
-# Reports, charts and downloads
-# ---------------------------------------------------------------------------
 @app.route("/reports")
 def reports_page():
     timetable, report = run_analysis()
@@ -1249,7 +1088,6 @@ def reports_page():
                            stats=reports.summary_stats(timetable, rooms, settings, report),
                            workload=report["workload_distribution"],
                            room_usage=reports.room_usage_table(timetable, rooms, settings))
-
 
 @app.route("/charts/<name>.png")
 def chart_image(name):
@@ -1267,13 +1105,11 @@ def chart_image(name):
         abort(404)
     return send_file(image, mimetype="image/png")
 
-
 @app.route("/download/timetable.csv")
 def download_timetable():
     data = file_io.timetable_csv(db.get_timetable())
     return send_file(io.BytesIO(data), mimetype="text/csv", as_attachment=True,
                      download_name=f"timetable_{date.today().isoformat()}.csv")
-
 
 @app.route("/download/report.xlsx")
 def download_report():
@@ -1281,7 +1117,6 @@ def download_report():
     return send_file(file_io.report_excel(timetable, report), as_attachment=True,
                      mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                      download_name=f"chronos_report_{date.today().isoformat()}.xlsx")
-
 
 @app.route("/download/template/<kind>.csv")
 def download_template(kind):
@@ -1294,18 +1129,12 @@ def download_template(kind):
     return send_file(io.BytesIO(data), mimetype="text/csv", as_attachment=True,
                      download_name=f"{kind}_template.csv")
 
-
 @app.route("/download/backup")
 @login_required
 def download_backup():
-    """The whole database in one file. Keep a copy somewhere safe."""
     return send_file(db.DB_PATH, as_attachment=True,
                      download_name=f"chronos_backup_{date.today().isoformat()}.db")
 
-
-# ---------------------------------------------------------------------------
-# Settings
-# ---------------------------------------------------------------------------
 @app.route("/settings", methods=["GET", "POST"])
 @login_required
 def settings_page():
@@ -1338,7 +1167,6 @@ def settings_page():
             return redirect(url_for("settings_page"))
     return render_template("settings.html", all_days=db.ALL_DAYS, scenarios=SCENARIOS)
 
-
 @app.route("/settings/demo/<key>", methods=["POST"])
 @login_required
 def load_demo(key):
@@ -1350,41 +1178,30 @@ def load_demo(key):
     flash(f"Loaded demo: {SCENARIOS[key]['title']}. The old timetable was replaced.", "success")
     return redirect(url_for("home"))
 
-
-# ---------------------------------------------------------------------------
-# JSON API (used by the dashboard's JavaScript)
-# ---------------------------------------------------------------------------
 @app.route("/api/health")
 def health():
     return jsonify({"status": "healthy", "ml_model_loaded": ml_pipeline is not None, "version": "2.0.0"})
-
 
 @app.route("/api/report")
 def api_report():
     timetable, report = run_analysis()
     return jsonify({"schedule": timetable, "report": report})
 
-
 @app.route("/api/scenarios")
 def get_scenarios():
     return jsonify({k: {"title": v["title"], "description": v["description"], "schedule": v["schedule"]}
                     for k, v in SCENARIOS.items()})
 
-
 @app.route("/api/analyze", methods=["POST"])
 def analyze():
-    """Analyse a timetable sent as JSON (does not save anything)."""
     data = request.get_json(silent=True)
     if not data or "schedule" not in data:
         return jsonify({"error": "Missing schedule entries in payload."}), 400
     return jsonify(make_detector().analyze_schedule(data["schedule"]))
 
-
 @app.route("/api/resolve", methods=["POST"])
 @login_required
 def resolve():
-    """Apply one suggested fix. The browser only sends WHICH suggestion; the server
-    works out the suggestion again itself, so nobody can send a fake change."""
     data = request.get_json(silent=True) or {}
     _, report = run_analysis()
     chosen = next((s for s in report["suggestions"]
@@ -1405,7 +1222,6 @@ def resolve():
 
     timetable, report = run_analysis()
     return jsonify({"status": "resolved", "applied": chosen, "schedule": timetable, "report": report})
-
 
 @app.route("/api/predict-stress", methods=["POST"])
 def predict_stress():
@@ -1461,18 +1277,15 @@ def predict_stress():
         "recommendation": recommendation,
     })
 
-
 @app.route("/api/model-info")
 def model_info():
     return jsonify(model_meta)
-
 
 ERROR_TEXT = {
     400: ("Bad request", "Something in that link or form was not valid. Please go back and try again."),
     404: ("Page not found", "This page does not exist, or the item was deleted."),
     500: ("Something went wrong", "The server hit an unexpected problem. Your data is safe; please try again."),
 }
-
 
 @app.errorhandler(400)
 @app.errorhandler(404)
@@ -1484,12 +1297,10 @@ def error_page(error):
     heading, message = ERROR_TEXT[code]
     return render_template("error.html", code=code, heading=heading, message=message), code
 
-
 @app.errorhandler(413)
 def too_large(_):
     flash("That file is too big (limit 5 MB).", "error")
     return redirect(request.referrer or url_for("home"))
-
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))

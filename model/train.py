@@ -1,7 +1,3 @@
-"""
-Faculty Workload Stress & Burnout Prediction Model Training
-PDL Lab Project - Practical Data Lab
-"""
 
 import os
 import json
@@ -84,13 +80,11 @@ def train():
         }
         print(f"  > {name:20} -> Accuracy: {acc*100:.2f}% | F1: {f1*100:.2f}% | 5-Fold CV: {cv_scores.mean()*100:.2f}%")
 
-    # Select Logistic Regression as primary production model (high accuracy, clean, simple)
     primary_pipe = fitted_pipelines['Logistic Regression']
     model_path = os.path.join(base_dir, 'workload_model.joblib')
     joblib.dump(primary_pipe, model_path)
     print(f"[SUCCESS] Exported primary model to: {model_path}")
 
-    # Feature Importance via Logistic Regression absolute average coefficient weights
     clf = primary_pipe.named_steps['classifier']
     cat_encoder = primary_pipe.named_steps['preprocessor'].named_transformers_['cat']
     feature_names = num_features + list(cat_encoder.get_feature_names_out(cat_features))

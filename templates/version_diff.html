@@ -17,7 +17,7 @@
     </div>
 
     <div style="display: flex; gap: 0.5rem; align-items: center;">
-      <!-- Compare selector -->
+      
       <form method="get" action="{{ url_for('version_diff', version_id=version.id) }}" style="display: flex; gap: 0.4rem; align-items: center;">
         <label for="compare_to" class="muted" style="font-size: 0.8rem;">Compare vs:</label>
         <select id="compare_to" name="compare_to" onchange="this.form.submit()" style="padding: 0.35rem 0.6rem; font-size: 0.82rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
@@ -30,7 +30,6 @@
         </select>
       </form>
 
-      <!-- Rollback Button -->
       {% if is_admin %}
       <form method="post" action="{{ url_for('version_rollback', version_id=version.id) }}"
             data-confirm="Rollback to '{{ version.version_name }}'? This will immediately restore this draft's schedule as the active timetable.">
@@ -43,7 +42,6 @@
     </div>
   </div>
 
-  <!-- Summary Metric Badges -->
   <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.85rem; margin-top: 1.25rem;">
     <div class="stat-card" style="padding: 0.75rem 1rem; border-left: 4px solid var(--primary);">
       <div class="muted" style="font-size: 0.75rem; text-transform: uppercase;">Total Changes</div>
@@ -67,7 +65,6 @@
     </div>
   </div>
 
-  <!-- Interactive Filter Controls -->
   <div style="margin-top: 1.25rem; display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
     <span class="muted" style="font-size: 0.8rem; font-weight: 600;">Filter:</span>
     <button type="button" class="btn btn-secondary-sm active-filter" onclick="filterDiff('all', this)">All Slots ({{ diff.diffs|length }})</button>
@@ -78,7 +75,6 @@
     <button type="button" class="btn btn-secondary-sm" onclick="filterDiff('unchanged', this)">Unchanged (={{ diff.summary.unchanged }})</button>
   </div>
 
-  <!-- Side-by-Side Difference Table -->
   <div class="table-responsive" style="margin-top: 1rem; max-height: 700px; overflow-y: auto;">
     <table class="data-table" id="diff-table">
       <thead>
@@ -103,7 +99,7 @@
           {% elif d.status == 'modified' %}background-color: #fffbeb;
           {% endif %}
         ">
-          <!-- Time & Section -->
+          
           <td>
             <strong>{{ d.day }}</strong>
             <div style="font-size: 0.78rem; font-family: var(--font-mono); color: var(--text-muted);">{{ d.time_slot }}</div>
@@ -115,7 +111,6 @@
             </div>
           </td>
 
-          <!-- Left: Old Snapshot Slot -->
           <td>
             {% if d.old %}
               <div class="strong-heading">
@@ -133,7 +128,6 @@
             {% endif %}
           </td>
 
-          <!-- Middle: Status & Delta Details -->
           <td style="text-align: center; vertical-align: middle;">
             {% if d.status == 'added' %}
               <span class="tag-badge green" style="font-weight: 700; font-size: 0.78rem;">+ Added</span>
@@ -151,7 +145,6 @@
             {% endif %}
           </td>
 
-          <!-- Right: New/Target Slot -->
           <td>
             {% if d.new %}
               <div class="strong-heading">

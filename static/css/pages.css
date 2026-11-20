@@ -1,4 +1,3 @@
-/* Styles for the multi-page app (navigation, forms, tables, print). Builds on style.css */
 
 a { color: var(--primary); }
 .brand { text-decoration: none; color: inherit; }
@@ -9,7 +8,6 @@ hr { border: none; border-top: 1px solid var(--border-color); margin: 1.25rem 0;
 .sub-heading { margin: 1.5rem 0 0.5rem; font-size: 1rem; }
 .card h4 { margin: 1rem 0 0.5rem; }
 
-/* Navigation */
 .account-links { display: flex; gap: 1rem; align-items: center; font-size: 0.85rem; flex-wrap: wrap; }
 .account-links a { text-decoration: none; font-weight: 600; }
 .nav-links {
@@ -23,7 +21,6 @@ hr { border: none; border-top: 1px solid var(--border-color); margin: 1.25rem 0;
 .nav-links a:hover { background: var(--bg-main); color: var(--text-main); }
 .nav-links a.active { background: var(--primary-light); color: var(--primary); }
 
-/* Sub Navigation / Hub Switcher */
 .hub-subnav {
   display: flex;
   gap: 0.5rem;
@@ -63,7 +60,6 @@ hr { border: none; border-top: 1px solid var(--border-color); margin: 1.25rem 0;
   box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
 }
 
-/* Messages */
 .flash {
   padding: 0.75rem 1rem; border-radius: var(--radius-md); margin-bottom: 1rem;
   font-size: 0.9rem; border: 1px solid;
@@ -72,7 +68,6 @@ hr { border: none; border-top: 1px solid var(--border-color); margin: 1.25rem 0;
 .flash.error { background: #fef2f2; border-color: #fecaca; color: #991b1b; }
 .flash.warning { background: #fffbeb; border-color: #fde68a; color: #92400e; }
 
-/* Buttons */
 .btn-sm { padding: 0.4rem 0.8rem; font-size: 0.8rem; }
 .btn-row.spaced { margin-top: 1rem; }
 .btn-row { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
@@ -90,7 +85,6 @@ hr { border: none; border-top: 1px solid var(--border-color); margin: 1.25rem 0;
 .actions { display: flex; gap: 0.75rem; align-items: center; white-space: nowrap; }
 .actions form, form.inline { display: inline; }
 
-/* Forms */
 .narrow-card { max-width: 440px; margin: 2rem auto; }
 .stack-form { display: flex; flex-direction: column; gap: 0.75rem; }
 .form-row-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
@@ -113,12 +107,10 @@ hr { border: none; border-top: 1px solid var(--border-color); margin: 1.25rem 0;
   padding: 0.75rem 0; border-bottom: 1px solid var(--border-color);
 }
 
-/* Tables */
 .data-table tr.warn-row td { background: #fffbeb; }
 .tag-badge.grey { background: #f1f5f9; color: #475569; }
 .bar-fill.grey { background: #cbd5e1; }
 
-/* Dashboard conflict cards */
 .conflict-title-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem; flex-wrap: wrap; }
 .fix-box {
   margin-top: 0.75rem; padding: 0.6rem 0.8rem; background: #f8fafc; border: 1px dashed var(--border-color);
@@ -128,19 +120,17 @@ hr { border: none; border-top: 1px solid var(--border-color); margin: 1.25rem 0;
 .fix-box .btn { white-space: nowrap; flex-shrink: 0; }
 .conflict-left { flex: 1; }
 
-/* Reports */
 .summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 0.75rem; }
 .summary-tile {
   border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.9rem;
   display: flex; flex-direction: column; font-size: 0.8rem; color: var(--text-muted);
 }
 .summary-tile .big { font-size: 1.4rem; font-weight: 800; color: var(--text-main); }
-/* charts are shown at their real size (same text size everywhere), shrinking only on small screens */
+
 .chart { max-width: 100%; height: auto; display: block; margin: 0.5rem 0; }
 details { margin-top: 0.75rem; }
 summary { cursor: pointer; font-weight: 600; font-size: 0.85rem; color: var(--primary); margin-bottom: 0.5rem; }
 
-/* Print menu & printable timetables */
 .print-menu { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
 @media (max-width: 768px) { .print-menu { grid-template-columns: 1fr; } }
 .print-menu ul { list-style: none; display: flex; flex-direction: column; gap: 0.35rem; }
@@ -158,10 +148,6 @@ summary { cursor: pointer; font-weight: 600; font-size: 0.85rem; color: var(--pr
 .clash-note { color: #b91c1c; font-weight: 800; font-size: 0.7rem; }
 .lunch-row td { text-align: center; background: #f8fafc; color: var(--text-muted); font-weight: 600; letter-spacing: 0.1em; }
 .print-foot { margin-top: 0.75rem; font-size: 0.7rem; color: var(--text-muted); }
-
-/* ==========================================================================
-   Pages Dark Mode Enhancements
-   ========================================================================== */
 
 .card-purple-accent {
   border: 2px solid #8b5cf6;
@@ -323,7 +309,6 @@ summary { cursor: pointer; font-weight: 600; font-size: 0.85rem; color: var(--pr
   @page { size: A4 landscape; margin: 12mm; }
 }
 
-/* Small helpers that replace old inline colours, so dark mode works everywhere */
 .info-box {
   background: var(--primary-light); border: 1px solid var(--border-color); border-radius: var(--radius-md);
   padding: 0.75rem 1rem; margin-bottom: 0.85rem; font-size: 0.8rem; color: var(--text-main);

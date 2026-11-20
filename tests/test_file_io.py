@@ -1,8 +1,6 @@
-"""Tests for core/file_io.py (reading uploaded CSV/Excel files)."""
 import os
 import tempfile
 
-# Use a temporary database so the tests never touch your real data in data/
 os.environ.setdefault("CHRONOS_DB", os.path.join(tempfile.mkdtemp(prefix="chronos_test_"), "test.db"))
 os.environ.setdefault("CHRONOS_SECRET", "test-secret")
 
@@ -14,11 +12,8 @@ from werkzeug.datastructures import FileStorage
 from core import file_io
 from core.conflict_detector import DEFAULT_RULES
 
-
 def upload(text, name="file.csv"):
-    """Pretend a user uploaded a file with this text."""
     return FileStorage(stream=io.BytesIO(text.encode("utf-8")), filename=name)
-
 
 class TestTimetableImport(unittest.TestCase):
     def test_good_rows_are_read_and_cleaned(self):
@@ -28,9 +23,9 @@ class TestTimetableImport(unittest.TestCase):
         entries, errors = file_io.parse_timetable(df, DEFAULT_RULES, {}, [])
         self.assertEqual(errors, [])
         self.assertEqual(entries[0]["faculty_name"], "Dr. A")
-        self.assertEqual(entries[0]["course_code"], "CS301")        # made upper-case
-        self.assertEqual(entries[0]["day"], "Monday")               # 'mon' understood
-        self.assertEqual(entries[0]["time_slot"], "09:00 - 10:00")  # matched to the official slot
+        self.assertEqual(entries[0]["course_code"], "CS301")
+        self.assertEqual(entries[0]["day"], "Monday")
+        self.assertEqual(entries[0]["time_slot"], "09:00 - 10:00")
 
     def test_single_subject_column_with_names(self):
         csv = ("Teacher,Subject,Class,Day,Time,Room\n"
@@ -59,7 +54,6 @@ class TestTimetableImport(unittest.TestCase):
         with self.assertRaises(ValueError):
             file_io.read_table(upload("hello", name="notes.txt"))
 
-
 class TestFacultyImport(unittest.TestCase):
     def test_designations_are_understood(self):
         csv = ("name,department,designation\n"
@@ -67,8 +61,7 @@ class TestFacultyImport(unittest.TestCase):
         rows, errors = file_io.parse_faculty(file_io.read_table(upload(csv)))
         self.assertEqual([r["designation"] for r in rows],
                          ["Assistant Professor", "Associate Professor", "Professor"])
-        self.assertEqual(len(errors), 1)  # 'Lecturer' is not a known designation
-
+        self.assertEqual(len(errors), 1)
 
 if __name__ == "__main__":
     unittest.main()

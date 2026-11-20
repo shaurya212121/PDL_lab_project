@@ -1,7 +1,4 @@
-/**
- * Used on every page.
- * Any form with data-confirm="question" asks the user before submitting.
- */
+
 document.addEventListener('submit', event => {
   const question = event.target.dataset ? event.target.dataset.confirm : null;
   if (question && !window.confirm(question)) {
@@ -9,10 +6,6 @@ document.addEventListener('submit', event => {
   }
 });
 
-/**
- * Theme toggle handler for Light / Dark Mode.
- * Persists user choice in localStorage across page transitions.
- */
 document.addEventListener('DOMContentLoaded', () => {
   const toggleBtn = document.getElementById('themeToggleBtn');
   if (!toggleBtn) return;
@@ -29,11 +22,6 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
-/**
- * Small visual extras used on every page:
- *  - the thin bar at the top that fills up as you scroll
- *  - an "x" button on every message, and success messages fade away by themselves
- */
 document.addEventListener('DOMContentLoaded', () => {
   const bar = document.getElementById('scrollProgress');
   if (bar) {

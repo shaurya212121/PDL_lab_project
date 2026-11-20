@@ -608,7 +608,7 @@
 {% include "_subnav_timetable.html" %}
 
 <div class="card">
-  <!-- Header -->
+  
   <div class="editor-header">
     <div class="editor-title">
       <h3>Interactive Visual Timetable Editor</h3>
@@ -619,7 +619,6 @@
     </div>
   </div>
 
-  <!-- Controls Bar -->
   <div class="editor-controls-bar">
     <div class="control-pill-group">
       <span class="control-pill-title">Select Day:</span>
@@ -648,7 +647,6 @@
     </div>
   </div>
 
-  <!-- Master Interactive Grid Table -->
   <div class="editor-grid-card">
     <div style="overflow-x: auto;">
       <table class="editor-table">
@@ -663,7 +661,7 @@
         <tbody>
           {% for slot in settings.time_slots %}
             {% if slot == settings.lunch_after %}
-              <!-- The period right before lunch -->
+              
               <tr>
                 <td class="slot-label-cell">{{ slot }}</td>
                 {% for col in columns %}
@@ -697,7 +695,7 @@
                   </td>
                 {% endfor %}
               </tr>
-              <!-- Horizontal Lunch Break Row -->
+              
               <tr class="lunch-row">
                 <td class="slot-label-cell" style="color: #94a3b8; font-size: 0.725rem;">LUNCH BREAK</td>
                 <td colspan="{{ columns|length }}" class="lunch-banner-cell">
@@ -705,7 +703,7 @@
                 </td>
               </tr>
             {% else %}
-              <!-- Regular Class Period -->
+              
               <tr>
                 <td class="slot-label-cell">{{ slot }}</td>
                 {% for col in columns %}
@@ -747,9 +745,6 @@
   </div>
 </div>
 
-<!-- ======================================================================= -->
-<!-- Modal 1: Tap Existing Class (Edit, Move, or Delete)                      -->
-<!-- ======================================================================= -->
 <div id="classActionModal" class="editor-modal">
   <div class="modal-header">
     <h3 id="ca_title">Edit Scheduled Class</h3>
@@ -822,9 +817,6 @@
   </form>
 </div>
 
-<!-- ======================================================================= -->
-<!-- Modal 2: Click Empty Slot (Add Class with Pre-filled Slot & Column)     -->
-<!-- ======================================================================= -->
 <div id="addClassModal" class="editor-modal">
   <div class="modal-header">
     <h3>Schedule Class at this Slot</h3>
@@ -898,7 +890,6 @@
   </form>
 </div>
 
-<!-- Backdrop Overlay -->
 <div id="modalOverlay" class="modal-overlay" onclick="closeModals()"></div>
 
 <script>

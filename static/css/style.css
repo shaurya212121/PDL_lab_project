@@ -1,4 +1,3 @@
-/* Chronos - Modern Academic Operations Stylesheet */
 
 :root {
   --primary: #2563eb;
@@ -56,7 +55,6 @@ body {
   flex-direction: column;
 }
 
-/* Navbar */
 .navbar {
   background: var(--bg-card);
   border-bottom: 1px solid var(--border-color);
@@ -141,7 +139,6 @@ body {
   border: 1px solid rgba(139, 92, 246, 0.2);
 }
 
-/* Main Content */
 .main-content {
   max-width: 1200px;
   width: 100%;
@@ -150,7 +147,6 @@ body {
   flex: 1;
 }
 
-/* Presets Section */
 .presets-section {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
@@ -224,7 +220,6 @@ body {
 .dot.amber { background-color: var(--warning); }
 .dot.red { background-color: var(--danger); }
 
-/* Stats Ribbon */
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -278,7 +273,6 @@ body {
 .text-warning { color: var(--warning); }
 .text-success { color: var(--success); }
 
-/* Tab Nav */
 .tab-nav {
   display: flex;
   gap: 0.5rem;
@@ -319,7 +313,6 @@ body {
   display: block;
 }
 
-/* Cards */
 .card {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
@@ -354,7 +347,6 @@ body {
   color: var(--text-muted);
 }
 
-/* Conflicts Alert Section */
 .resolve-banner {
   background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
   border: 1px solid #bfdbfe;
@@ -483,7 +475,6 @@ body {
   color: #6b21a8;
 }
 
-/* Data Tables */
 .table-responsive {
   overflow-x: auto;
 }
@@ -518,7 +509,6 @@ body {
   font-weight: 600;
 }
 
-/* Inline Add Class Form */
 .inline-form-card {
   background: #f8fafc;
   border: 1px solid var(--border-color);
@@ -559,7 +549,6 @@ body {
   gap: 0.5rem;
 }
 
-/* Workload Distribution Bars */
 .workload-list {
   display: flex;
   flex-direction: column;
@@ -629,7 +618,6 @@ body {
   text-align: right;
 }
 
-/* Grid 2 Column (Stress Predictor) */
 .grid-2col {
   display: grid;
   grid-template-columns: 1.1fr 1fr;
@@ -737,7 +725,6 @@ input:focus, select:focus {
   background: #e2e8f0;
 }
 
-/* Stress Result Body */
 .stress-result-body {
   display: flex;
   flex-direction: column;
@@ -810,7 +797,6 @@ input:focus, select:focus {
   line-height: 1.45;
 }
 
-/* Benchmarks Card */
 .metrics-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -889,7 +875,6 @@ input:focus, select:focus {
   border-bottom: 2px solid #bfdbfe;
 }
 
-/* Footer */
 .footer {
   background: var(--bg-card);
   border-top: 1px solid var(--border-color);
@@ -908,10 +893,6 @@ input:focus, select:focus {
   color: var(--text-light);
   margin-top: 0.25rem;
 }
-
-/* ==========================================================================
-   Theme Toggle Button & Dark Mode Styles
-   ========================================================================== */
 
 .theme-toggle-btn {
   background: var(--bg-card);
@@ -942,7 +923,6 @@ input:focus, select:focus {
   transition: transform 0.2s ease;
 }
 
-/* Light mode defaults: show moon, hide sun */
 .theme-toggle-btn .sun-icon {
   display: none;
 }
@@ -950,7 +930,6 @@ input:focus, select:focus {
   display: block;
 }
 
-/* Dark mode theme variables */
 [data-theme="dark"] {
   --bg-main: #0b1120;
   --bg-card: #131e36;
@@ -980,7 +959,6 @@ input:focus, select:focus {
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.55), 0 4px 6px -4px rgba(0, 0, 0, 0.45);
 }
 
-/* Dark mode toggle icon swap */
 [data-theme="dark"] .theme-toggle-btn .sun-icon {
   display: block;
 }
@@ -988,7 +966,6 @@ input:focus, select:focus {
   display: none;
 }
 
-/* Dark mode component-level styling */
 [data-theme="dark"] .navbar {
   background: var(--bg-card);
   border-bottom-color: var(--border-color);

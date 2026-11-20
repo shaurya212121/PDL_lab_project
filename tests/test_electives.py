@@ -1,10 +1,6 @@
-"""
-Tests for Open Electives Cross-Department Conflict Resolution and Interactive Editor.
-"""
 
 import unittest
 from core.conflict_detector import ConflictDetector
-
 
 class TestElectivesAndEditor(unittest.TestCase):
     def setUp(self):
@@ -39,21 +35,13 @@ class TestElectivesAndEditor(unittest.TestCase):
         ]
 
     def test_cross_department_elective_clash_detected(self):
-        """
-        Students from CSE-A and IT-A are enrolled in OE301 on Monday 10:00 - 11:00.
-        If CSE-A also has CS301 scheduled in their own department at the same time,
-        ConflictDetector MUST flag a cross-department elective collision.
-        """
         schedule = [
-            # Open elective scheduled for mixed cohort
             {"id": 1, "faculty_name": "Dr. Vikram Gupta", "department": "AI-DS",
              "course_code": "OE301", "section": "Open-Cohort", "day": "Monday",
              "time_slot": "10:00 - 11:00", "room": "LH-101"},
-            # Conflicting parallel class in CSE department for CSE-A
             {"id": 2, "faculty_name": "Dr. Rajesh Sharma", "department": "CSE",
              "course_code": "CS301", "section": "CSE-A", "day": "Monday",
              "time_slot": "10:00 - 11:00", "room": "LH-102"},
-            # Non-conflicting class for IT-A at a different time
             {"id": 3, "faculty_name": "Prof. Sneha Deshmukh", "department": "IT",
              "course_code": "IT301", "section": "IT-A", "day": "Monday",
              "time_slot": "11:00 - 12:00", "room": "LH-201"},
@@ -71,17 +59,14 @@ class TestElectivesAndEditor(unittest.TestCase):
         conflict_types = [c["type"] for c in report["conflicts_list"]]
         self.assertIn("ELECTIVE_SECTION_CLASH", conflict_types)
 
-        # Check description mentions the enrolled section
         elective_conflicts = [c for c in report["conflicts_list"] if c["type"] == "ELECTIVE_SECTION_CLASH"]
         self.assertTrue(any("CSE-A" in c["description"] for c in elective_conflicts))
 
     def test_clean_cross_department_elective_schedule(self):
-        """When elective is scheduled during an open slot with no parallel classes, zero clash is reported."""
         schedule = [
             {"id": 1, "faculty_name": "Dr. Vikram Gupta", "department": "AI-DS",
              "course_code": "OE301", "section": "Open-Cohort", "day": "Monday",
              "time_slot": "10:00 - 11:00", "room": "LH-101"},
-            # CSE-A and IT-A have classes only at other times
             {"id": 2, "faculty_name": "Dr. Rajesh Sharma", "department": "CSE",
              "course_code": "CS301", "section": "CSE-A", "day": "Monday",
              "time_slot": "11:00 - 12:00", "room": "LH-102"},
@@ -98,7 +83,6 @@ class TestElectivesAndEditor(unittest.TestCase):
         )
         report = detector.analyze_schedule(schedule)
         self.assertEqual(report["critical_conflicts"], 0)
-
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,8 +1,6 @@
-"""Tests for the web app (app.py) using Flask's built-in test client."""
 import os
 import tempfile
 
-# Use a temporary database so the tests never touch your real data in data/
 os.environ.setdefault("CHRONOS_DB", os.path.join(tempfile.mkdtemp(prefix="chronos_test_"), "test.db"))
 os.environ.setdefault("CHRONOS_SECRET", "test-secret")
 
@@ -12,21 +10,18 @@ import unittest
 import app as webapp
 from core import database as db
 
-
 class AppTestCase(unittest.TestCase):
     def setUp(self):
         db.load_scenario("balanced")
         self.client = webapp.app.test_client()
 
     def token(self):
-        """Read the CSRF token from a page, like a real browser form would."""
         html = self.client.get("/login").get_data(as_text=True)
         return re.search(r'name="csrf-token" content="([^"]+)"', html).group(1)
 
     def login(self):
         return self.client.post("/login", data={"username": "admin", "password": "admin123",
                                                 "csrf_token": self.token()})
-
 
 class TestPublicPages(AppTestCase):
     def test_pages_open_without_login(self):
@@ -43,7 +38,6 @@ class TestPublicPages(AppTestCase):
         self.assertEqual(len(data["schedule"]), 16)
         self.assertEqual(data["report"]["total_conflicts"], 0)
 
-
 class TestSecurity(AppTestCase):
     def test_wrong_password(self):
         self.client.post("/login", data={"username": "admin", "password": "nope", "csrf_token": self.token()})
@@ -52,9 +46,8 @@ class TestSecurity(AppTestCase):
     def test_post_without_csrf_token_is_rejected(self):
         self.login()
         before = len(db.get_timetable())
-        self.client.post("/timetable/clear")  # no csrf_token -> must be ignored
+        self.client.post("/timetable/clear")
         self.assertEqual(len(db.get_timetable()), before)
-
 
 class TestAdminActions(AppTestCase):
     def test_add_clashing_class_shows_warning(self):
@@ -82,15 +75,13 @@ class TestAdminActions(AppTestCase):
     def test_leave_lists_substitutes(self):
         self.login()
         self.client.post("/leave/add", data={"csrf_token": self.token(), "faculty_name": "Dr. Rajesh Sharma",
-                                             "leave_date": "2099-01-05", "reason": "Test"})  # a Monday
+                                             "leave_date": "2099-01-05", "reason": "Test"})
         html = self.client.get("/leave").get_data(as_text=True)
         self.assertIn("CS301", html)
         self.assertIn("Assign", html)
         db.execute("DELETE FROM leaves")
 
-
 class TestInputValidation(AppTestCase):
-    """Bad form data must be refused, not saved."""
 
     def test_holiday_with_bad_date_is_refused(self):
         self.login()
@@ -108,7 +99,7 @@ class TestInputValidation(AppTestCase):
         self.client.post("/exams/add", data={**base, "assistant_supervisor": "Dr. Rajesh Sharma"})
         self.client.post("/exams/add", data={**base, "primary_supervisor": "Nobody"})
         self.assertEqual(len(db.get_exam_sessions()), 0)
-        self.client.post("/exams/add", data=base)  # the valid one is saved
+        self.client.post("/exams/add", data=base)
         self.assertEqual(len(db.get_exam_sessions()), 1)
         db.execute("DELETE FROM exam_sessions")
 
@@ -130,7 +121,6 @@ class TestInputValidation(AppTestCase):
                                     json={"Designation": "Professor", "TeachingHours": -5})
         self.assertEqual(response.status_code, 400)
 
-
 class TestErrorPages(AppTestCase):
     def test_unknown_page_shows_friendly_404(self):
         response = self.client.get("/this/does/not/exist")
@@ -145,7 +135,6 @@ class TestErrorPages(AppTestCase):
     def test_drafts_page_is_public_but_hides_admin_buttons(self):
         html = self.client.get("/versions").get_data(as_text=True)
         self.assertNotIn("Save Draft Snapshot", html)
-
 
 if __name__ == "__main__":
     unittest.main()

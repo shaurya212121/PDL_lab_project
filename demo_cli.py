@@ -1,9 +1,3 @@
-"""
-Chronos - terminal demo (no browser needed).
-
-    python demo_cli.py              -> runs the demo "clashes" timetable
-    python demo_cli.py my_file.csv  -> checks your own timetable file (CSV or Excel)
-"""
 
 import os
 import sys
@@ -17,9 +11,7 @@ from core.scenarios import SCENARIOS
 
 CAPS = {"Professor": 14, "Associate Professor": 16, "Assistant Professor": 18}
 
-
 def demo_detector():
-    """A detector filled with the sample faculty, rooms, sections and subjects."""
     catalog = {name: {"designation": d, "department": dept, "max_hours": CAPS[d]}
                for name, dept, d in db.DEMO_FACULTY}
     rooms = [{"name": n, "room_type": t, "capacity": c} for n, t, c in db.DEMO_ROOMS]
@@ -31,9 +23,7 @@ def demo_detector():
             mapping.setdefault(code, []).append(faculty)
     return ConflictDetector(catalog, rooms, sections, subjects, mapping), catalog, subjects
 
-
 class FileFromDisk:
-    """Lets file_io.read_table() read a file from disk like an uploaded file."""
     def __init__(self, path):
         self.filename = path
         self._f = open(path, "rb")
@@ -43,7 +33,6 @@ class FileFromDisk:
 
     def __getattr__(self, name):
         return getattr(self._f, name)
-
 
 def print_report(schedule, report):
     print(f"  Classes analysed      : {len(schedule)}")
@@ -61,7 +50,6 @@ def print_report(schedule, report):
         for s in report["suggestions"]:
             print(f"  -> {s['action']}: {s['reason']}")
 
-
 def main():
     print("=" * 72)
     print("   CHRONOS: FACULTY WORKLOAD DISTRIBUTION & CONFLICT DETECTOR")
@@ -76,7 +64,6 @@ def main():
                                                   DEFAULT_RULES, catalog, subjects)
         for e in errors:
             print(f"  skipped -> {e}")
-        # Faculty from your file are not in the sample list, so only check clashes & limits
         schedule = [dict(e, id=i + 1) for i, e in enumerate(entries)]
         report = ConflictDetector(faculty_catalog={}).analyze_schedule(schedule)
     else:
@@ -103,7 +90,6 @@ def main():
     print("\n" + "=" * 72)
     print("Web dashboard: python app.py  ->  http://127.0.0.1:5000")
     print("=" * 72)
-
 
 if __name__ == "__main__":
     main()

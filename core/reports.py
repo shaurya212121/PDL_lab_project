@@ -1,32 +1,23 @@
-"""
-Summary numbers and charts for the Reports page.
-
-pandas  -> counting / grouping the timetable
-matplotlib -> drawing the charts as PNG images
-"""
 
 import io
 import matplotlib
-matplotlib.use("Agg")  # draw images without opening a window (needed on a server)
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
 from matplotlib.ticker import MaxNLocator
 
-# Chart colours
 BLUE = "#2a78d6"
 TEXT = "#0b0b0b"
 MUTED = "#52514e"
 GRID = "#e4e3df"
-STATUS_COLORS = {          # colour + label always appear together in the legend
+STATUS_COLORS = {
     "Balanced": "#0ca30c",
     "Underloaded": "#fab219",
     "Overloaded": "#d03b3b",
     "Unassigned": "#b8b7b0",
 }
 
-
 def summary_stats(timetable, rooms, settings, report):
-    """Key numbers shown at the top of the Reports page."""
     df = pd.DataFrame(timetable)
     total_slots_per_room = len(settings["working_days"]) * len(settings["time_slots"])
 
@@ -60,9 +51,7 @@ def summary_stats(timetable, rooms, settings, report):
         stats["room_usage_percent"] = round(100 * len(used) / (len(rooms) * total_slots_per_room), 1)
     return stats
 
-
 def room_usage_table(timetable, rooms, settings):
-    """How many slots each room is used per week, and as a %."""
     total = len(settings["working_days"]) * len(settings["time_slots"]) or 1
     df = pd.DataFrame(timetable)
     rows = []
@@ -72,19 +61,13 @@ def room_usage_table(timetable, rooms, settings):
                      "total": total, "percent": round(100 * used / total, 1)})
     return rows
 
-
-# ---------------------------------------------------------------------------
-# Charts
-# ---------------------------------------------------------------------------
 def _style(ax):
-    """Same clean look for every chart."""
     for side in ["top", "right", "left"]:
         ax.spines[side].set_visible(False)
     ax.spines["bottom"].set_color(GRID)
     ax.tick_params(colors=MUTED, labelsize=9, length=0)
     ax.grid(axis="x", color=GRID, linewidth=0.8)
     ax.set_axisbelow(True)
-
 
 def _to_png(fig):
     buffer = io.BytesIO()
@@ -93,16 +76,13 @@ def _to_png(fig):
     buffer.seek(0)
     return buffer
 
-
 def _empty_chart(message):
     fig, ax = plt.subplots(figsize=(7, 1.5))
     ax.axis("off")
     ax.text(0.5, 0.5, message, ha="center", va="center", color=MUTED, fontsize=11)
     return _to_png(fig)
 
-
 def workload_chart(distribution):
-    """Horizontal bar per teacher: % of weekly cap used, coloured by status."""
     if not distribution:
         return _empty_chart("No faculty added yet")
 
@@ -127,26 +107,23 @@ def workload_chart(distribution):
     ax.legend(handles, used_status, loc="lower right", frameon=False, fontsize=8)
     return _to_png(fig)
 
-
 def count_chart(timetable, column, order=None, xlabel="Classes per week"):
-    """Simple horizontal bar chart counting classes by a column (day, department ...)."""
     df = pd.DataFrame(timetable)
     if df.empty:
         return _empty_chart("The timetable is empty")
     counts = df[column].value_counts()
     if order:
         counts = counts.reindex(order, fill_value=0)
-    counts = counts.iloc[::-1]  # first item at the top
+    counts = counts.iloc[::-1]
 
     fig, ax = plt.subplots(figsize=(6, 0.4 * len(counts) + 1.0))
     ax.barh(counts.index.astype(str), counts.values, color=BLUE, height=0.55)
     for i, v in enumerate(counts.values):
         ax.text(v + 0.1, i, str(v), va="center", fontsize=8, color=MUTED)
-    ax.xaxis.set_major_locator(MaxNLocator(integer=True))  # no "0.5 classes"
+    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
     ax.set_xlabel(xlabel, color=MUTED, fontsize=9)
     _style(ax)
     return _to_png(fig)
-
 
 def room_chart(usage_rows):
     if not usage_rows:

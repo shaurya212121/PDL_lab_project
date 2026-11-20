@@ -1,15 +1,9 @@
-/* ==========================================================================
-   theme.css - the "neon glass" look.
-   Loaded AFTER style.css and pages.css, so it only changes how things look:
-   gradients, glass cards, glow and small animations. No layout logic here.
-   Everything still works if this file is removed.
-   ========================================================================== */
 
 :root {
-  --grad-a: #6366f1;   /* indigo  */
-  --grad-b: #a855f7;   /* violet  */
-  --grad-c: #ec4899;   /* pink    */
-  --grad-d: #06b6d4;   /* cyan    */
+  --grad-a: #6366f1;   
+  --grad-b: #a855f7;   
+  --grad-c: #ec4899;   
+  --grad-d: #06b6d4;   
   --grad-main: linear-gradient(120deg, var(--grad-a), var(--grad-b) 45%, var(--grad-c));
   --grad-cool: linear-gradient(120deg, var(--grad-d), var(--grad-a));
 
@@ -46,7 +40,6 @@
   --grid-line: rgba(129, 140, 248, 0.07);
 }
 
-/* ---------- Animated background ("aurora") ---------- */
 body { background: var(--bg-main); position: relative; overflow-x: hidden; }
 
 body::before {
@@ -62,7 +55,6 @@ body::before {
   animation: aurora 22s ease-in-out infinite alternate;
 }
 
-/* faint graph-paper grid on top of the colours */
 body::after {
   content: "";
   position: fixed;
@@ -85,14 +77,12 @@ body::after {
 
 ::selection { background: var(--grad-b); color: #fff; }
 
-/* thin top bar that fills up as you scroll (width set by common.js) */
 .scroll-progress {
   position: fixed; top: 0; left: 0; height: 3px; width: 0;
   background: var(--grad-main); z-index: 100;
   box-shadow: 0 0 12px var(--grad-b);
 }
 
-/* ---------- Glass surfaces ---------- */
 .navbar,
 .card,
 .stat-card,
@@ -123,7 +113,6 @@ body::after {
 .card { border-radius: 20px; }
 .footer, [data-theme="dark"] .footer { background: transparent; border-top: 1px solid var(--glass-border); }
 
-/* ---------- Navbar & brand ---------- */
 .navbar { border-left: none; border-right: none; border-top: none; }
 
 .brand-icon {
@@ -168,7 +157,6 @@ body::after {
 }
 .theme-toggle-btn:hover { transform: rotate(180deg); }
 
-/* ---------- Sub navigation (pill switcher) ---------- */
 .hub-subnav { border-radius: 999px; padding: 0.4rem 0.5rem 0.4rem 1rem; }
 .hub-subnav-label {
   background: var(--grad-main); -webkit-background-clip: text; background-clip: text; color: transparent;
@@ -181,7 +169,6 @@ body::after {
   box-shadow: 0 6px 16px -6px rgba(168, 85, 247, 0.7);
 }
 
-/* ---------- Buttons ---------- */
 .btn { border-radius: 12px; position: relative; overflow: hidden; }
 .btn-primary,
 .btn-resolve {
@@ -202,7 +189,6 @@ body::after {
 }
 .btn-primary:active, .btn-resolve:active { transform: translateY(0) scale(0.98); }
 
-/* light sweeping across a primary button on hover */
 .btn-primary::after,
 .btn-resolve::after {
   content: "";
@@ -226,28 +212,25 @@ body::after {
 }
 .btn-secondary:hover, .btn-secondary-sm:hover { transform: translateY(-1px); border-color: var(--grad-b); color: var(--primary); }
 
-/* ---------- Form fields ---------- */
 input:focus, select:focus, textarea:focus {
   outline: none;
   border-color: var(--grad-b) !important;
   box-shadow: 0 0 0 4px rgba(168, 85, 247, 0.18) !important;
 }
 
-/* ---------- Stat cards ---------- */
 .stat-card {
   border-radius: 20px;
   position: relative;
   overflow: hidden;
   transition: transform 0.25s cubic-bezier(.34, 1.56, .64, 1), box-shadow 0.25s ease;
 }
-.stat-card::before {           /* coloured strip along the top */
+.stat-card::before {           
   content: ""; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--grad-main);
 }
 .stat-card:hover { transform: translateY(-6px) scale(1.02); box-shadow: 0 24px 40px -18px rgba(99, 102, 241, 0.55); }
 .stat-icon { border-radius: 14px; }
 .stat-val { font-size: 2rem; font-weight: 800; letter-spacing: -0.03em; }
 
-/* ---------- Dashboard hero with the health gauge ---------- */
 .hero {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -264,7 +247,7 @@ input:focus, select:focus, textarea:focus {
   -webkit-backdrop-filter: blur(16px) saturate(160%);
   box-shadow: var(--glass-shadow);
 }
-.hero::before {                /* soft glow blob behind the text */
+.hero::before {                
   content: ""; position: absolute; width: 380px; height: 380px; right: -80px; top: -160px;
   background: radial-gradient(circle, rgba(236, 72, 153, 0.25), transparent 65%);
   pointer-events: none;
@@ -287,7 +270,6 @@ input:focus, select:focus, textarea:focus {
 .hero p.lead { color: var(--text-muted); max-width: 560px; font-size: 1rem; }
 .hero-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-top: 1.25rem; }
 
-/* circular gauge: --score (0-100) is set by app.js, the colour ring is a conic-gradient */
 .health-ring {
   --score: 0;
   --ring-color: #22c55e;
@@ -308,7 +290,6 @@ input:focus, select:focus, textarea:focus {
   .hero-gauge { justify-self: center; }
 }
 
-/* ---------- Tabs ---------- */
 .tab-nav { border-bottom: none; gap: 0.4rem; flex-wrap: wrap; }
 .tab-btn { border-radius: 999px; border: 1px solid transparent; }
 .tab-btn:hover { background: var(--primary-light); }
@@ -318,7 +299,6 @@ input:focus, select:focus, textarea:focus {
 }
 .tab-content.active { animation: rise 0.45s ease both; }
 
-/* ---------- Conflict cards ---------- */
 .conflict-card { border-radius: 16px; transition: transform 0.2s ease; position: relative; }
 .conflict-card:hover { transform: translateX(4px); }
 .conflict-card.CRITICAL { border-left: 5px solid #ef4444; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); animation: alarm 2.4s ease-in-out infinite; }
@@ -327,7 +307,6 @@ input:focus, select:focus, textarea:focus {
 }
 .conflict-card.WARNING { border-left: 5px solid #f59e0b; }
 
-/* ---------- Workload bars ---------- */
 .workload-item { border-radius: 16px; transition: transform 0.2s ease; }
 .workload-item:hover { transform: translateY(-3px); }
 .bar-track, .prob-track { border-radius: 999px; overflow: hidden; }
@@ -335,7 +314,7 @@ input:focus, select:focus, textarea:focus {
 .bar-fill.green, .fill-green { background: linear-gradient(90deg, #10b981, #22d3ee); }
 .bar-fill.amber, .fill-amber { background: linear-gradient(90deg, #f59e0b, #facc15); }
 .bar-fill.red,   .fill-red   { background: linear-gradient(90deg, #ef4444, #ec4899); }
-.bar-fill::after, .prob-fill::after {   /* moving shine inside the bar */
+.bar-fill::after, .prob-fill::after {   
   content: ""; position: absolute; inset: 0;
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.45), transparent);
   transform: translateX(-100%);
@@ -343,7 +322,6 @@ input:focus, select:focus, textarea:focus {
 }
 @keyframes barshine { 60%, 100% { transform: translateX(100%); } }
 
-/* ---------- Tables ---------- */
 .data-table, .benchmark-table { border-collapse: separate; border-spacing: 0; }
 .data-table thead th, .benchmark-table thead th {
   text-transform: uppercase; font-size: 0.72rem; letter-spacing: 0.08em;
@@ -352,7 +330,6 @@ input:focus, select:focus, textarea:focus {
 .data-table tbody tr:hover td { background: var(--primary-light); }
 .tag-badge { border-radius: 999px; }
 
-/* ---------- Flash messages become toasts ---------- */
 .flash {
   border-radius: 14px;
   position: relative;
@@ -374,7 +351,6 @@ input:focus, select:focus, textarea:focus {
 @keyframes slidein { from { opacity: 0; transform: translateY(-12px) scale(0.98); } }
 @keyframes slideout { to { opacity: 0; transform: translateX(30px); height: 0; margin: 0; padding-top: 0; padding-bottom: 0; } }
 
-/* ---------- Entrance animation for the page ---------- */
 @keyframes rise { from { opacity: 0; transform: translateY(18px); } }
 .main-content > * { animation: rise 0.55s cubic-bezier(.22, 1, .36, 1) both; }
 .main-content > *:nth-child(2) { animation-delay: 0.06s; }
@@ -386,7 +362,6 @@ input:focus, select:focus, textarea:focus {
 .stats-grid .stat-card:nth-child(3) { animation-delay: 0.16s; }
 .stats-grid .stat-card:nth-child(4) { animation-delay: 0.24s; }
 
-/* ---------- Error page ---------- */
 .error-page { text-align: center; padding: 4rem 1rem; }
 .error-code {
   font-size: clamp(5rem, 18vw, 10rem); font-weight: 800; letter-spacing: -0.06em; line-height: 1;
@@ -396,21 +371,17 @@ input:focus, select:focus, textarea:focus {
 @keyframes float { 50% { transform: translateY(-12px); } }
 .error-page p { color: var(--text-muted); margin: 1rem auto 1.5rem; max-width: 460px; }
 
-/* ---------- Login card ---------- */
 .narrow-card { border-radius: 24px; }
 .narrow-card h3 { font-size: 1.5rem; letter-spacing: -0.03em; }
 
-/* ---------- Scrollbar ---------- */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: linear-gradient(var(--grad-a), var(--grad-c)); border-radius: 999px; border: 2px solid var(--bg-main); }
 
-/* ---------- People who prefer less motion get a calm version ---------- */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
 
-/* ---------- Printing: plain black on white, no effects ---------- */
 @media print {
   body::before, body::after, .scroll-progress { display: none !important; }
   body { background: #fff !important; }
@@ -421,7 +392,6 @@ input:focus, select:focus, textarea:focus {
   .print-sheet { border: none !important; padding: 0 !important; }
 }
 
-/* ---------- Phones: menu scrolls sideways instead of filling the screen ---------- */
 @media (max-width: 720px) {
   .navbar { position: relative; padding: 0.75rem 1rem; }
   .brand-text .subtitle { display: none; }
@@ -431,6 +401,5 @@ input:focus, select:focus, textarea:focus {
   .hub-subnav { border-radius: 18px; }
 }
 
-/* links styled as buttons should not look like links */
 a.btn, a.btn:hover { text-decoration: none; }
 a.btn-primary, a.btn-primary:hover { color: #fff; }

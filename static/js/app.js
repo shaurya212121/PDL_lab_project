@@ -1,7 +1,3 @@
-/**
- * Chronos - dashboard page script.
- * Loads the analysis from the server (/api/report) and shows it.
- */
 
 let currentReport = null;
 let currentSchedule = [];
@@ -18,7 +14,6 @@ document.addEventListener('DOMContentLoaded', () => {
   handleStressPrediction();
 });
 
-/** Make text safe to put inside HTML (names typed by users could contain < or >). */
 function esc(value) {
   return String(value ?? '').replace(/[&<>"']/g, ch => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]
@@ -54,13 +49,12 @@ function renderReport(report) {
   fillFacultyDropdown(report.workload_distribution);
 }
 
-/** Animate a number from 0 up to its value (just for looks). */
 function countUp(el, target, suffix = '', decimals = 0, onStep = null) {
   const duration = 900;
   const start = performance.now();
   function step(now) {
     const t = Math.min((now - start) / duration, 1);
-    const eased = 1 - Math.pow(1 - t, 3);          // fast at first, slow at the end
+    const eased = 1 - Math.pow(1 - t, 3);
     const value = target * eased;
     el.innerText = value.toFixed(decimals) + suffix;
     if (onStep) onStep(value);
@@ -69,11 +63,6 @@ function countUp(el, target, suffix = '', decimals = 0, onStep = null) {
   requestAnimationFrame(step);
 }
 
-/**
- * Health score shown in the big ring on the dashboard.
- * Start from the Workload Balance Index, then take off 15 points per hard clash
- * and 3 per warning, so a timetable with clashes can never look "healthy".
- */
 function healthScore(report) {
   const score = report.workload_balance_score - 15 * report.critical_conflicts - 3 * report.warning_conflicts;
   return Math.max(0, Math.min(100, Math.round(score)));
@@ -105,7 +94,6 @@ function renderHealth(report) {
   document.getElementById('heroSummary').innerText = summary;
 }
 
-/** One card per problem, with its suggested fix underneath (if there is one). */
 function renderConflicts(report) {
   const container = document.getElementById('conflictsContainer');
   if (report.conflicts_list.length === 0) {
@@ -115,7 +103,6 @@ function renderConflicts(report) {
     return;
   }
 
-  // Critical first, then warnings
   const sorted = [...report.conflicts_list].sort((a, b) =>
     (a.severity === 'CRITICAL' ? 0 : 1) - (b.severity === 'CRITICAL' ? 0 : 1));
 
@@ -193,8 +180,6 @@ function renderWorkload(list) {
     </div>`).join('') || '<p class="muted">No faculty added yet.</p>';
 }
 
-/* ---------------- Burnout predictor ---------------- */
-
 function fillFacultyDropdown(list) {
   const select = document.getElementById('calcFaculty');
   const chosen = select.value;
@@ -203,7 +188,6 @@ function fillFacultyDropdown(list) {
   select.value = chosen;
 }
 
-/** Count a teacher's lecture hours, lab hours, subjects and days from the timetable. */
 function fillFromFaculty() {
   const name = document.getElementById('calcFaculty').value;
   if (!name) return;

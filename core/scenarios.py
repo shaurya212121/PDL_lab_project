@@ -1,29 +1,15 @@
-"""
-Ready-made demo timetables.
-
-They are used for the demo (Settings page -> "Load demo timetable") and by
-the tests. Loading a scenario REPLACES the current timetable.
-"""
-
 
 def cls(entry_id, faculty, dept, code, name, section, day, slot, room):
-    """Small helper so each class fits on one line."""
     return {"id": entry_id, "faculty_name": faculty, "department": dept,
             "course_code": code, "course_name": name, "section": section,
             "day": day, "time_slot": slot, "room": room}
 
-
-# Time slot names (short variables make the lists below easier to read)
 S09, S10, S11, S12 = "09:00 - 10:00", "10:00 - 11:00", "11:00 - 12:00", "12:00 - 01:00"
 S02, S03, S04 = "02:00 - 03:00", "03:00 - 04:00", "04:00 - 05:00"
 
 RAJESH, ANANYA, AMIT, PRIYA = "Dr. Rajesh Sharma", "Prof. Ananya Iyer", "Dr. Amit Verma", "Dr. Priya Nair"
 SURESH, SNEHA, VIKRAM, POOJA = "Dr. Suresh Patel", "Prof. Sneha Deshmukh", "Dr. Vikram Gupta", "Dr. Pooja Menon"
 
-
-# ---------------------------------------------------------------------------
-# Scenario A: a clean timetable with no problems
-# ---------------------------------------------------------------------------
 BALANCED = [
     cls("S1", RAJESH, "CSE", "CS301", "Operating Systems", "CSE-A", "Monday", S09, "LH-101"),
     cls("S2", ANANYA, "CSE", "CS302", "Database Systems", "CSE-B", "Monday", S10, "LH-102"),
@@ -46,32 +32,19 @@ BALANCED = [
     cls("S16", POOJA, "AI-DS", "AI302", "Deep Learning", "AI-A", "Thursday", S03, "LH-301"),
 ]
 
-# ---------------------------------------------------------------------------
-# Scenario B: hard clashes (faculty, room, section) + a lab in a lecture hall
-# ---------------------------------------------------------------------------
 COLLISION = [
-    # Faculty clash: Dr. Rajesh Sharma in two classes on Monday 10:00
     cls("C1", RAJESH, "CSE", "CS301", "Operating Systems", "CSE-A", "Monday", S10, "LH-101"),
     cls("C2", RAJESH, "CSE", "CS301", "Operating Systems", "CSE-B", "Monday", S10, "LH-102"),
-    # Room clash: LH-101 used by two teachers on Wednesday 11:00
     cls("C3", ANANYA, "CSE", "CS302", "Database Systems", "CSE-A", "Wednesday", S11, "LH-101"),
     cls("C4", AMIT, "CSE", "CS303", "Computer Networks", "CSE-B", "Wednesday", S11, "LH-101"),
-    # Section clash: CSE-A students have two classes on Tuesday 09:00
     cls("C5", PRIYA, "CSE", "CS304", "Algorithms", "CSE-A", "Tuesday", S09, "LH-103"),
     cls("C9", ANANYA, "CSE", "CS302", "Database Systems", "CSE-A", "Tuesday", S09, "LH-102"),
-    # Lab subject placed in a lecture hall
     cls("C10", PRIYA, "CSE", "CS305", "Data Structures Lab", "CSE-B", "Friday", S10, "LH-103"),
-    # Normal classes
     cls("C6", SURESH, "IT", "IT301", "Web Technologies", "IT-A", "Tuesday", S11, "LH-201"),
     cls("C7", SNEHA, "IT", "IT302", "Cloud Computing", "IT-A", "Thursday", S10, "LH-201"),
     cls("C8", VIKRAM, "AI-DS", "AI301", "Machine Learning", "AI-A", "Thursday", S02, "LH-301"),
 ]
 
-# ---------------------------------------------------------------------------
-# Scenario C: overload and fatigue
-# Dr. Amit Verma (Assistant Professor, cap 18 hrs) gets 19 hours,
-# Dr. Priya Nair teaches 4 classes back-to-back on Tuesday morning.
-# ---------------------------------------------------------------------------
 OVERLOAD = [
     cls("O1", PRIYA, "CSE", "CS304", "Algorithms", "CSE-A", "Tuesday", S09, "LH-103"),
     cls("O2", PRIYA, "CSE", "CS304", "Algorithms", "CSE-B", "Tuesday", S10, "LH-103"),

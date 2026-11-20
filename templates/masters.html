@@ -11,7 +11,7 @@
 {% if is_admin %}<p class="hint">To change an item, add it again with the <strong>same name/code</strong>. The old details are replaced.</p>{% endif %}
 
 <div class="grid-2col">
-  <!-- Rooms -->
+  
   <div class="card" id="rooms">
     <h3>Rooms ({{ rooms|length }})</h3>
     <p class="card-desc">Lab subjects must be in a Lab. The section strength must fit the room capacity.</p>
@@ -40,7 +40,6 @@
     {% endif %}
   </div>
 
-  <!-- Sections -->
   <div class="card" id="sections">
     <h3>Sections ({{ sections|length }})</h3>
     <p class="card-desc">Student groups. A section cannot have two classes at the same time.</p>
@@ -70,7 +69,6 @@
   </div>
 </div>
 
-<!-- Subjects -->
 <div class="card" id="subjects">
   <h3>Subjects ({{ subjects|length }})</h3>
   <p class="card-desc">Choose which teachers can take each subject on the <a href="{{ url_for('faculty_page') }}">Faculty</a> page (Edit).</p>
@@ -101,7 +99,6 @@
   {% endif %}
 </div>
 
-<!-- Open Elective Baskets (Cross-Department CBCS) -->
 <div class="card" id="electives">
   <h3>Open Elective Baskets (CBCS Cross-Department)</h3>
   <p class="card-desc">Group elective subjects where students from multiple departments attend together. Chronos checks cross-department student section collisions for all enrolled batches.</p>

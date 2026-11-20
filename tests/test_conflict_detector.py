@@ -1,8 +1,6 @@
-"""Tests for core/conflict_detector.py (no database needed)."""
 import os
 import tempfile
 
-# Use a temporary database so the tests never touch your real data in data/
 os.environ.setdefault("CHRONOS_DB", os.path.join(tempfile.mkdtemp(prefix="chronos_test_"), "test.db"))
 os.environ.setdefault("CHRONOS_SECRET", "test-secret")
 
@@ -27,19 +25,15 @@ SUBJECTS = [{"code": "CS1", "name": "Maths", "department": "CSE", "is_lab": 0},
             {"code": "CS2", "name": "Physics", "department": "CSE", "is_lab": 0},
             {"code": "CS9", "name": "Python Lab", "department": "CSE", "is_lab": 1}]
 
-
 def cls(i, faculty, section, day, slot, room, code="CS1"):
     return {"id": i, "faculty_name": faculty, "department": "CSE", "course_code": code,
             "course_name": "", "section": section, "day": day, "time_slot": slot, "room": room}
 
-
 def make_detector(faculty_subjects=None):
     return ConflictDetector(CATALOG, ROOMS, SECTIONS, SUBJECTS, faculty_subjects or {})
 
-
 def types_of(report):
     return [c["type"] for c in report["conflicts_list"]]
-
 
 class TestHardConflicts(unittest.TestCase):
     def test_clean_timetable_has_no_conflicts(self):
@@ -65,7 +59,6 @@ class TestHardConflicts(unittest.TestCase):
                     cls(2, "Dr. B", "CSE-A", "Monday", "09:00 - 10:00", "LAB-1")]
         self.assertIn("SECTION_CLASH", types_of(make_detector().analyze_schedule(schedule)))
 
-
 class TestWarnings(unittest.TestCase):
     def test_four_classes_in_a_row_is_fatigue(self):
         slots = ["09:00 - 10:00", "10:00 - 11:00", "11:00 - 12:00", "12:00 - 01:00"]
@@ -73,7 +66,6 @@ class TestWarnings(unittest.TestCase):
         self.assertIn("CONSECUTIVE_FATIGUE", types_of(make_detector().analyze_schedule(schedule)))
 
     def test_lunch_break_resets_the_streak(self):
-        # 11-12, 12-1, (lunch), 2-3, 3-4  -> longest run is only 2, so no warning
         slots = ["11:00 - 12:00", "12:00 - 01:00", "02:00 - 03:00", "03:00 - 04:00"]
         schedule = [cls(i, "Dr. B", "CSE-A", "Monday", s, "LH-1") for i, s in enumerate(slots)]
         self.assertNotIn("CONSECUTIVE_FATIGUE", types_of(make_detector().analyze_schedule(schedule)))
@@ -91,7 +83,7 @@ class TestWarnings(unittest.TestCase):
         self.assertIn("LAB_ROOM_MISMATCH", types_of(make_detector().analyze_schedule(schedule)))
 
     def test_room_too_small(self):
-        schedule = [cls(1, "Dr. B", "CSE-A", "Monday", "09:00 - 10:00", "LH-2")]  # 60 students, 30 seats
+        schedule = [cls(1, "Dr. B", "CSE-A", "Monday", "09:00 - 10:00", "LH-2")]
         self.assertIn("ROOM_TOO_SMALL", types_of(make_detector().analyze_schedule(schedule)))
 
     def test_not_qualified(self):
@@ -105,7 +97,6 @@ class TestWarnings(unittest.TestCase):
         self.assertIn("UNKNOWN_FACULTY", found)
         self.assertIn("INVALID_SLOT", found)
 
-
 class TestSuggestions(unittest.TestCase):
     def test_substitute_is_free_and_qualified(self):
         schedule = [cls(1, "Dr. A", "CSE-A", "Monday", "09:00 - 10:00", "LH-1"),
@@ -113,16 +104,15 @@ class TestSuggestions(unittest.TestCase):
         report = make_detector({"CS1": ["Dr. A", "Dr. C"]}).analyze_schedule(schedule)
         fix = report["suggestions"][0]
         self.assertEqual(fix["action"], "REASSIGN_FACULTY")
-        self.assertEqual(fix["recommended_faculty"], "Dr. C")  # qualified one is preferred
+        self.assertEqual(fix["recommended_faculty"], "Dr. C")
 
     def test_free_room_is_really_free(self):
-        # LH-1 is double-booked, and LAB-1 is also busy -> only a lecture hall that fits may be suggested
         schedule = [cls(1, "Dr. A", "CSE-A", "Monday", "09:00 - 10:00", "LH-1"),
                     cls(2, "Dr. B", "CSE-B", "Monday", "09:00 - 10:00", "LH-1")]
         report = make_detector().analyze_schedule(schedule)
         fix = report["suggestions"][0]
         self.assertEqual(fix["action"], "CHANGE_ROOM")
-        self.assertEqual(fix["recommended_room"], "LAB-1")  # LH-2 is too small for 60 students
+        self.assertEqual(fix["recommended_room"], "LAB-1")
 
     def test_section_clash_suggests_a_free_slot(self):
         schedule = [cls(1, "Dr. A", "CSE-A", "Monday", "09:00 - 10:00", "LH-1"),
@@ -131,10 +121,8 @@ class TestSuggestions(unittest.TestCase):
         self.assertEqual(fix["action"], "MOVE_SLOT")
         self.assertNotEqual((fix["recommended_day"], fix["recommended_slot"]), ("Monday", "09:00 - 10:00"))
 
-
 class TestBalanceIndex(unittest.TestCase):
     def test_uses_utilization_not_raw_hours(self):
-        # Same % of cap for both teachers -> perfectly balanced even though hours differ
         catalog = {"P": {"designation": "Professor", "department": "X", "max_hours": 10},
                    "Q": {"designation": "Assistant Professor", "department": "X", "max_hours": 20}}
         days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
@@ -143,7 +131,6 @@ class TestBalanceIndex(unittest.TestCase):
         schedule += [cls(f"q{d}{s}", "Q", "S2", d, s, "R2") for d in days for s in slots]
         report = ConflictDetector(catalog).analyze_schedule(schedule)
         self.assertEqual(report["workload_balance_score"], 100.0)
-
 
 class TestDemoScenarios(unittest.TestCase):
     def setUp(self):
@@ -169,7 +156,6 @@ class TestDemoScenarios(unittest.TestCase):
         found = types_of(self.detector.analyze_schedule(SCENARIOS["overload"]["schedule"]))
         self.assertIn("WEEKLY_OVERLOAD", found)
         self.assertIn("CONSECUTIVE_FATIGUE", found)
-
 
 if __name__ == "__main__":
     unittest.main()

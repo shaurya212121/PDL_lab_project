@@ -1,10 +1,6 @@
-"""
-Tests for Lab Batch System in Chronos.
-"""
 
 import unittest
 from core.conflict_detector import ConflictDetector
-
 
 class TestLabBatchSystem(unittest.TestCase):
     def setUp(self):
@@ -27,11 +23,6 @@ class TestLabBatchSystem(unittest.TestCase):
         ]
 
     def test_parallel_distinct_lab_batches_allowed(self):
-        """
-        When CSE-A is split into Batch B1 (in Lab-1 with Dr. Amit)
-        and Batch B2 (in Lab-2 with Dr. Priya) at the SAME time slot,
-        it is completely valid and MUST NOT trigger a section clash!
-        """
         schedule = [
             {"id": 1, "faculty_name": "Dr. Amit Verma", "department": "CSE",
              "course_code": "CS305", "section": "CSE-A", "batch": "B1",
@@ -50,10 +41,6 @@ class TestLabBatchSystem(unittest.TestCase):
         self.assertEqual(report["critical_conflicts"], 0, f"Unexpected conflicts: {report['conflicts_list']}")
 
     def test_same_lab_batch_double_booked_triggers_clash(self):
-        """
-        If the SAME batch B1 is assigned to two classes simultaneously,
-        it MUST trigger a hard Section/Batch clash.
-        """
         schedule = [
             {"id": 1, "faculty_name": "Dr. Amit Verma", "department": "CSE",
              "course_code": "CS305", "section": "CSE-A", "batch": "B1",
@@ -73,16 +60,10 @@ class TestLabBatchSystem(unittest.TestCase):
         self.assertIn("SECTION_CLASH", types)
 
     def test_entire_section_vs_sub_batch_triggers_clash(self):
-        """
-        If the entire section ('All') has a lecture while a sub-batch (B1) is in a lab,
-        it MUST trigger a hard Section clash because students in B1 cannot be in two places.
-        """
         schedule = [
-            # Whole section lecture
             {"id": 1, "faculty_name": "Prof. Ananya Iyer", "department": "CSE",
              "course_code": "CS301", "section": "CSE-A", "batch": "All",
              "day": "Monday", "time_slot": "09:00 - 10:00", "room": "LH-101"},
-            # Parallel sub-batch lab
             {"id": 2, "faculty_name": "Dr. Amit Verma", "department": "CSE",
              "course_code": "CS305", "section": "CSE-A", "batch": "B1",
              "day": "Monday", "time_slot": "09:00 - 10:00", "room": "Lab-1"},
@@ -96,7 +77,6 @@ class TestLabBatchSystem(unittest.TestCase):
         report = detector.analyze_schedule(schedule)
         types = [c["type"] for c in report["conflicts_list"]]
         self.assertIn("SECTION_CLASH", types)
-
 
 if __name__ == "__main__":
     unittest.main()
